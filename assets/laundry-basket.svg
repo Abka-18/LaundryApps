@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" role="img" aria-labelledby="title desc">
+  <title id="title">LaundAps basket mark</title>
+  <desc id="desc">A clean laundry basket with folded fabric and water bubbles.</desc>
+  <rect width="192" height="192" rx="40" fill="#e7f8f5"/>
+  <path d="M48 73h96l-10 73a18 18 0 0 1-18 16H76a18 18 0 0 1-18-16L48 73Z" fill="#0f766e"/>
+  <path d="M67 73 82 39h28l15 34" fill="none" stroke="#134e4a" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M67 92h58M72 113h48M78 134h36" stroke="#c8fff6" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="127" cy="47" r="9" fill="#f97316"/>
+  <circle cx="144" cy="31" r="6" fill="#22c55e"/>
+  <circle cx="48" cy="49" r="7" fill="#14b8a6"/>
+</svg>
