@@ -48,6 +48,35 @@
     "svc-bedcover": "bag"
   };
 
+  const ICON_SVG = {
+    home:    `<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1v-9.5Z"/>`,
+    plus:    `<path d="M12 5v14M5 12h14"/>`,
+    pin:     `<path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>`,
+    chart:   `<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`,
+    user:    `<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>`,
+    bell:    `<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2H4.5L6 16Z"/><path d="M10 20a2 2 0 0 0 4 0"/>`,
+    search:  `<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>`,
+    chev:    `<path d="m9 6 6 6-6 6"/>`,
+    chevLeft:`<path d="m15 6-6 6 6 6"/>`,
+    check:   `<path d="m5 12 5 5L20 7"/>`,
+    close:   `<path d="M6 6l12 12M18 6 6 18"/>`,
+    sparkle: `<path d="M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M18 6l-3 3M9 15l-3 3"/>`,
+    truck:   `<path d="M2 7h12v9H2zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>`,
+    clock:   `<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>`,
+    credit:  `<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/>`,
+    wallet:  `<path d="M3 7h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M19 12h-4a2 2 0 0 0 0 4h4"/><path d="M3 7V5a2 2 0 0 1 2-2h10l2 4"/>`,
+    cash:    `<rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>`,
+    bag:     `<path d="M5 8h14l-1.5 12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>`,
+    hanger:  `<path d="M12 6a2 2 0 1 1 2 2l-2 2v2"/><path d="M4 18 12 12l8 6v2H4z"/>`,
+    iron:    `<path d="M3 16h18l-2-7a4 4 0 0 0-4-3H9a4 4 0 0 0-4 3l-2 7Z"/><path d="M3 20h18"/>`,
+    phone:   `<path d="M4 5c0 9 6 15 15 15l2-3-4-2-2 2a13 13 0 0 1-6-6l2-2-2-4-3 0Z"/>`,
+    note:    `<path d="M6 4h9l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v5h5"/>`,
+    gift:    `<rect x="3" y="9" width="18" height="11" rx="1"/><path d="M3 13h18M12 9v11"/><path d="M8 9a3 3 0 0 1 4-4 3 3 0 0 1 4 4"/>`,
+    logout:  `<path d="M9 4h9a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H9"/><path d="m13 12-8 0M8 8l-4 4 4 4"/>`,
+    help:    `<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.5-2.5 4"/><circle cx="12" cy="17" r=".8" fill="currentColor" stroke="none"/>`,
+    "star-solid": `<path d="m12 3 2.6 5.9 6.4.6-4.8 4.4 1.4 6.4L12 17.3 6.4 20.3l1.4-6.4L3 9.5l6.4-.6L12 3Z" fill="currentColor" stroke="none"/>`
+  };
+
   const ui = {
     role: "owner",
     ownerTab: "dashboard",
@@ -61,6 +90,7 @@
     modal: null,
     // client redesign state
     showSplash: false,
+    onboardingStep: 0,
     historyFilter: "all",
     clientReportRange: "month",
     paymentOrderId: "",
@@ -253,7 +283,7 @@
 
   function render() {
     if (ui.showSplash) {
-      app.innerHTML = renderSplashScreen();
+      app.innerHTML = renderOnboardingScreen();
       modalRoot.innerHTML = "";
       return;
     }
@@ -1438,18 +1468,138 @@
   //  CLIENT REDESIGN — screens, icons, helpers
   // ============================================================
 
-  function renderSplashScreen() {
-    return `
-      <section class="c-splash">
-        <div class="c-splash__logo">
-          <img src="assets/laundry-basket.svg" alt="LaundAps" />
+  function getOnboardingSlides() { return [
+    {
+      illustClass: "c-ob__illust--welcome",
+      illust: `
+        <div class="c-ob__welcome-art">
+          <div class="c-ob__logo-wrap">
+            <img src="assets/laundry-basket.svg" alt="LaundAps" class="c-ob__logo" />
+          </div>
+          <div class="c-ob__deco c-ob__deco--1"></div>
+          <div class="c-ob__deco c-ob__deco--2"></div>
+          <div class="c-ob__deco c-ob__deco--3"></div>
         </div>
-        <div class="c-splash__body">
-          <p class="c-splash__eyebrow">LAUNDAPS</p>
-          <h1 class="c-splash__headline">Laundry kamu,<br/>jelas statusnya.</h1>
-          <p class="c-splash__sub">Pesan, lacak, dan bayar laundry dari HP — tanpa perlu chat bolak-balik.</p>
-          <button class="c-btn c-btn--accent c-btn--full c-btn--lg" type="button" data-action="dismiss-splash">Mulai Sekarang</button>
-          <p class="c-splash__footer">Sudah punya akun? <button type="button" data-action="dismiss-splash">Masuk</button></p>
+      `,
+      eyebrow: "SELAMAT DATANG",
+      title: "Laundry kamu,<br/>jelas statusnya.",
+      sub: "Semua urusan laundry — pesan, pantau, dan bayar — cukup dari HP kamu."
+    },
+    {
+      illustClass: "c-ob__illust--order",
+      illust: `
+        <div class="c-ob__order-art">
+          <div class="c-ob__mock-tiles">
+            <div class="c-ob__mock-tile is-active">
+              <span class="c-ob__mock-icon">${icon("hanger","var(--c-primary)")}</span>
+              <strong>Cuci Kiloan</strong>
+              <small>Rp 8k/kg</small>
+            </div>
+            <div class="c-ob__mock-tile">
+              <span class="c-ob__mock-icon">${icon("sparkle","var(--c-accent)")}</span>
+              <strong>Express</strong>
+              <small>Rp 15k/kg</small>
+            </div>
+          </div>
+          <div class="c-ob__mock-chips">
+            <span class="is-active">Hari ini</span>
+            <span>Besok</span>
+            <span>Jum</span>
+          </div>
+          <div class="c-ob__mock-cta">Pesan Sekarang &rarr;</div>
+        </div>
+      `,
+      eyebrow: "BUAT ORDER",
+      title: "Pesan laundry dalam hitungan detik",
+      sub: "Pilih layanan, tentukan jadwal jemput, dan konfirmasi tanpa ribet."
+    },
+    {
+      illustClass: "c-ob__illust--track",
+      illust: `
+        <div class="c-ob__track-art">
+          ${[
+            { iconName: "truck",   label: "Dijemput",    current: true  },
+            { iconName: "bag",     label: "Dicuci",      current: false },
+            { iconName: "sparkle", label: "Dikeringkan", current: false },
+            { iconName: "hanger",  label: "Dikemas",     current: false },
+            { iconName: "check",   label: "Siap Antar",  current: false }
+          ].map((s, i, arr) => `
+            <div class="c-ob__tl-step ${s.current ? "is-current" : ""}">
+              <span class="c-ob__tl-icon">${icon(s.iconName)}</span>
+              <span class="c-ob__tl-label">${s.label}</span>
+              ${i < arr.length - 1 ? '<span class="c-ob__tl-line"></span>' : ""}
+            </div>
+          `).join("")}
+        </div>
+      `,
+      eyebrow: "LACAK REAL-TIME",
+      title: "Tau di mana laundry kamu setiap saat",
+      sub: "5 langkah progress dari penjemputan hingga siap antar — lengkap dengan info kurir."
+    },
+    {
+      illustClass: "c-ob__illust--pay",
+      illust: `
+        <div class="c-ob__pay-art">
+          <div class="c-ob__pay-methods">
+            <span class="c-ob__pay-pill">${icon("wallet")} GoPay</span>
+            <span class="c-ob__pay-pill">${icon("wallet")} OVO</span>
+            <span class="c-ob__pay-pill">${icon("credit")} BCA</span>
+            <span class="c-ob__pay-pill">${icon("cash")} Tunai</span>
+          </div>
+          <div class="c-ob__pay-chart">
+            ${[25, 55, 35, 70, 50, 100].map((h, i) => `
+              <div class="c-ob__pay-col">
+                <span class="c-ob__pay-bar ${i === 5 ? "is-active" : ""}" style="height:${h}%"></span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `,
+      eyebrow: "BAYAR & LAPORAN",
+      title: "Bayar mudah, pantau pengeluaran",
+      sub: "GoPay, OVO, BCA, atau tunai. Laporan bulanan otomatis — tidak perlu catat manual."
+    }
+  ]; }
+
+  function renderOnboardingScreen() {
+    const slides = getOnboardingSlides();
+    const step = ui.onboardingStep;
+    const s = slides[step];
+    const total = slides.length;
+    const isLast = step === total - 1;
+
+    return `
+      <section class="c-onboarding">
+        ${step > 0 ? `
+          <button class="c-ob__skip" type="button" data-action="skip-onboarding">Lewati</button>
+        ` : ""}
+
+        <div class="c-ob__illust ${escapeAttr(s.illustClass)}">
+          ${s.illust}
+        </div>
+
+        <div class="c-ob__body">
+          <div class="c-ob__dots" role="tablist" aria-label="Langkah ${step + 1} dari ${total}">
+            ${Array.from({ length: total }, (_, i) => `
+              <button class="c-ob__dot ${i === step ? "is-active" : ""}" type="button"
+                data-action="set-onboarding-step" data-step="${i}"
+                aria-label="Slide ${i + 1}" aria-selected="${i === step}"></button>
+            `).join("")}
+          </div>
+
+          <p class="c-ob__eyebrow">${escapeHtml(s.eyebrow)}</p>
+          <h1 class="c-ob__headline">${s.title}</h1>
+          <p class="c-ob__sub">${escapeHtml(s.sub)}</p>
+
+          <div class="c-ob__actions">
+            ${step > 0 ? `
+              <button class="c-btn c-btn--ghost" type="button" data-action="prev-onboarding">← Kembali</button>
+            ` : ""}
+            <button class="c-btn ${isLast ? "c-btn--accent" : "c-btn--primary"} c-ob__next-btn" type="button"
+              data-action="${isLast ? "skip-onboarding" : "next-onboarding"}">
+              ${isLast ? "Mulai Sekarang" : "Lanjut →"}
+            </button>
+          </div>
         </div>
       </section>
     `;
@@ -1640,35 +1790,7 @@
     `;
   }
 
-  // --- Icon system --------------------------------------------
-  const ICON_SVG = {
-    home:    `<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1v-9.5Z"/>`,
-    plus:    `<path d="M12 5v14M5 12h14"/>`,
-    pin:     `<path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>`,
-    chart:   `<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`,
-    user:    `<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>`,
-    bell:    `<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2H4.5L6 16Z"/><path d="M10 20a2 2 0 0 0 4 0"/>`,
-    search:  `<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>`,
-    chev:    `<path d="m9 6 6 6-6 6"/>`,
-    chevLeft:`<path d="m15 6-6 6 6 6"/>`,
-    check:   `<path d="m5 12 5 5L20 7"/>`,
-    close:   `<path d="M6 6l12 12M18 6 6 18"/>`,
-    sparkle: `<path d="M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M18 6l-3 3M9 15l-3 3"/>`,
-    truck:   `<path d="M2 7h12v9H2zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>`,
-    clock:   `<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>`,
-    credit:  `<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/>`,
-    wallet:  `<path d="M3 7h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M19 12h-4a2 2 0 0 0 0 4h4"/><path d="M3 7V5a2 2 0 0 1 2-2h10l2 4"/>`,
-    cash:    `<rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>`,
-    bag:     `<path d="M5 8h14l-1.5 12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>`,
-    hanger:  `<path d="M12 6a2 2 0 1 1 2 2l-2 2v2"/><path d="M4 18 12 12l8 6v2H4z"/>`,
-    iron:    `<path d="M3 16h18l-2-7a4 4 0 0 0-4-3H9a4 4 0 0 0-4 3l-2 7Z"/><path d="M3 20h18"/>`,
-    phone:   `<path d="M4 5c0 9 6 15 15 15l2-3-4-2-2 2a13 13 0 0 1-6-6l2-2-2-4-3 0Z"/>`,
-    note:    `<path d="M6 4h9l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v5h5"/>`,
-    gift:    `<rect x="3" y="9" width="18" height="11" rx="1"/><path d="M3 13h18M12 9v11"/><path d="M8 9a3 3 0 0 1 4-4 3 3 0 0 1 4 4"/>`,
-    logout:  `<path d="M9 4h9a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H9"/><path d="m13 12-8 0M8 8l-4 4 4 4"/>`,
-    help:    `<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.5-2.5 4"/><circle cx="12" cy="17" r=".8" fill="currentColor" stroke="none"/>`,
-    "star-solid": `<path d="m12 3 2.6 5.9 6.4.6-4.8 4.4 1.4 6.4L12 17.3 6.4 20.3l1.4-6.4L3 9.5l6.4-.6L12 3Z" fill="currentColor" stroke="none"/>`
-  };
+  // icon() is defined later; ICON_SVG moved up near here — see below render()
 
   function icon(name, color = "currentColor", width = 2) {
     const path = ICON_SVG[name];
@@ -1974,10 +2096,33 @@
 
     // --- Client redesign handlers ---
 
-    if (action === "dismiss-splash") {
+    if (action === "dismiss-splash" || action === "skip-onboarding") {
       try { localStorage.setItem(SPLASH_KEY, "1"); } catch {}
       ui.showSplash = false;
+      ui.onboardingStep = 0;
       render();
+    }
+
+    if (action === "next-onboarding") {
+      if (ui.onboardingStep < getOnboardingSlides().length - 1) {
+        ui.onboardingStep += 1;
+        render();
+      }
+    }
+
+    if (action === "prev-onboarding") {
+      if (ui.onboardingStep > 0) {
+        ui.onboardingStep -= 1;
+        render();
+      }
+    }
+
+    if (action === "set-onboarding-step") {
+      const step = Number(actionEl.dataset.step);
+      if (!isNaN(step) && step >= 0 && step < getOnboardingSlides().length) {
+        ui.onboardingStep = step;
+        render();
+      }
     }
 
     if (action === "go-tab") {
@@ -2110,6 +2255,7 @@
     if (action === "client-logout") {
       try { localStorage.removeItem(SPLASH_KEY); } catch {}
       ui.showSplash = true;
+      ui.onboardingStep = 0;
       ui.role = "client";
       ui.clientTab = "home";
       showToast("Kamu sudah keluar. Sampai jumpa lagi!");

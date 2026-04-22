@@ -2277,3 +2277,314 @@ img {
 
 /* --- Hide any owner topbar gunk on client (extra safety) --- */
 .c-app .topbar { display: none; }
+
+/* =========================================================
+   ONBOARDING
+   ========================================================= */
+.c-onboarding {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100dvh;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* Skip button */
+.c-ob__skip {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  z-index: 10;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: none;
+  background: rgba(255,255,255,0.25);
+  color: #fff;
+  font: 600 13px/1 Inter, sans-serif;
+  cursor: pointer;
+  backdrop-filter: blur(4px);
+  transition: background 0.15s;
+}
+.c-ob__skip:active { background: rgba(255,255,255,0.4); }
+
+/* ---- Illustration area (top ~52%) ---- */
+.c-ob__illust {
+  flex: 0 0 52%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.c-ob__illust--welcome { background: linear-gradient(145deg, #0f766e 0%, #0d5c57 60%, #0a4a45 100%); }
+.c-ob__illust--order   { background: linear-gradient(145deg, #134e4a 0%, #0f766e 100%); }
+.c-ob__illust--track   { background: linear-gradient(145deg, #f15a24 0%, #e04010 60%, #b83210 100%); }
+.c-ob__illust--pay     { background: linear-gradient(145deg, #0d5c57 0%, #0f766e 60%, #1a9e94 100%); }
+
+/* --- Slide 1: Welcome art --- */
+.c-ob__welcome-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+.c-ob__logo-wrap {
+  width: 100px;
+  height: 100px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(8px);
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.c-ob__logo { width: 64px; height: 64px; }
+.c-ob__deco {
+  position: absolute;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,0.12);
+  pointer-events: none;
+}
+.c-ob__deco--1 { width: 220px; height: 220px; top: -40px;  right: -40px;  background: rgba(255,255,255,0.04); }
+.c-ob__deco--2 { width: 160px; height: 160px; bottom: -30px; left: -30px; background: rgba(255,255,255,0.06); }
+.c-ob__deco--3 { width: 80px;  height: 80px;  top: 30%;  right: 20%;    background: rgba(255,255,255,0.08); }
+
+/* --- Slide 2: Order art (mock UI card) --- */
+.c-ob__order-art {
+  background: rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 20px;
+  width: calc(100% - 48px);
+  max-width: 320px;
+  backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.c-ob__mock-tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.c-ob__mock-tile {
+  background: rgba(255,255,255,0.15);
+  border-radius: 14px;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1.5px solid transparent;
+  transition: all 0.15s;
+}
+.c-ob__mock-tile.is-active {
+  background: #fff;
+  border-color: var(--c-primary);
+}
+.c-ob__mock-tile.is-active strong { color: var(--c-primary); }
+.c-ob__mock-tile.is-active small  { color: var(--c-muted); }
+.c-ob__mock-tile strong { color: #fff; font: 700 13px/1.2 Inter, sans-serif; }
+.c-ob__mock-tile small  { color: rgba(255,255,255,0.7); font: 500 11px/1 Inter, sans-serif; }
+.c-ob__mock-icon { display: block; margin-bottom: 4px; }
+.c-ob__mock-chips {
+  display: flex;
+  gap: 8px;
+}
+.c-ob__mock-chips span {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font: 600 12px/1 Inter, sans-serif;
+  color: rgba(255,255,255,0.7);
+  background: rgba(255,255,255,0.12);
+}
+.c-ob__mock-chips span.is-active {
+  background: var(--c-accent);
+  color: #fff;
+}
+.c-ob__mock-cta {
+  background: rgba(255,255,255,0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  text-align: center;
+  font: 700 13px/1 Inter, sans-serif;
+  color: #fff;
+}
+
+/* --- Slide 3: Track art (timeline) --- */
+.c-ob__track-art {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  padding: 0 24px;
+  width: 100%;
+}
+.c-ob__tl-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  position: relative;
+}
+.c-ob__tl-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.6);
+  font-size: 18px;
+  position: relative;
+  z-index: 1;
+  transition: all 0.2s;
+}
+.c-ob__tl-step.is-current .c-ob__tl-icon {
+  background: #fff;
+  color: var(--c-accent);
+  box-shadow: 0 4px 16px rgba(241,90,36,0.35);
+  transform: scale(1.15);
+}
+.c-ob__tl-label {
+  font: 600 10px/1 Inter, sans-serif;
+  color: rgba(255,255,255,0.7);
+  text-align: center;
+  white-space: nowrap;
+}
+.c-ob__tl-step.is-current .c-ob__tl-label { color: #fff; }
+.c-ob__tl-line {
+  position: absolute;
+  top: 22px;
+  left: calc(50% + 22px);
+  width: calc(100% - 44px);
+  height: 2px;
+  background: rgba(255,255,255,0.2);
+  z-index: 0;
+}
+
+/* --- Slide 4: Pay art --- */
+.c-ob__pay-art {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  width: 100%;
+}
+.c-ob__pay-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+.c-ob__pay-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 20px;
+  background: rgba(255,255,255,0.15);
+  font: 600 12px/1 Inter, sans-serif;
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+.c-ob__pay-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  height: 80px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 12px 16px;
+  width: 100%;
+  max-width: 300px;
+}
+.c-ob__pay-col {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+}
+.c-ob__pay-bar {
+  display: block;
+  width: 100%;
+  border-radius: 6px 6px 0 0;
+  background: rgba(255,255,255,0.3);
+  transition: height 0.3s ease;
+}
+.c-ob__pay-bar.is-active { background: var(--c-accent); }
+
+/* ---- Body area (bottom ~48%) ---- */
+.c-ob__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 28px calc(env(safe-area-inset-bottom, 0px) + 28px);
+  gap: 10px;
+}
+
+/* Dot indicators */
+.c-ob__dots {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.c-ob__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  border: none;
+  background: var(--c-line);
+  cursor: pointer;
+  padding: 0;
+  transition: width 0.25s ease, background 0.2s;
+}
+.c-ob__dot.is-active {
+  width: 24px;
+  background: var(--c-primary);
+}
+
+.c-ob__eyebrow {
+  font: 700 10px/1 Inter, sans-serif;
+  letter-spacing: 0.1em;
+  color: var(--c-primary);
+  text-transform: uppercase;
+  margin: 0;
+}
+.c-ob__headline {
+  font: 800 26px/1.15 Inter, sans-serif;
+  color: var(--c-ink);
+  margin: 0;
+}
+.c-ob__sub {
+  font: 400 14px/1.55 Inter, sans-serif;
+  color: var(--c-muted);
+  margin: 0;
+  flex: 1;
+}
+
+/* Action buttons */
+.c-ob__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+.c-ob__next-btn { flex: 1; }
+
+/* slide-in animation */
+@keyframes c-ob-slidein {
+  from { opacity: 0; transform: translateX(24px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.c-ob__body { animation: c-ob-slidein 0.3s ease both; }
+@media (prefers-reduced-motion: reduce) {
+  .c-ob__body { animation: none; }
+}
