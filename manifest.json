@@ -2,7 +2,7 @@
   "name": "LaundAps",
   "short_name": "LaundAps",
   "description": "Aplikasi laundry mobile-first untuk owner, staff, kurir, dan pelanggan.",
-  "start_url": "./index.html",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#f7fbfa",
   "theme_color": "#0f766e",
