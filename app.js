@@ -1,5 +1,6 @@
 (() => {
   const STORAGE_KEY = "laundaps.state.v1";
+  const SPLASH_KEY = "laundaps.splash.seen.v1";
 
   const statusFlow = [
     { id: "created", label: "Order dibuat", client: "Order diterima", tone: "info" },
@@ -23,12 +24,29 @@
   ];
 
   const clientTabs = [
-    { id: "home", label: "Home", short: "Hm" },
-    { id: "create", label: "Buat", short: "Bt" },
-    { id: "track", label: "Tracking", short: "Tr" },
-    { id: "history", label: "Riwayat", short: "Rw" },
-    { id: "profile", label: "Profil", short: "Pr" }
+    { id: "home",    label: "Home",    icon: "home" },
+    { id: "create",  label: "Order",   icon: "plus" },
+    { id: "track",   label: "Lacak",   icon: "pin" },
+    { id: "report",  label: "Laporan", icon: "chart" },
+    { id: "profile", label: "Profil",  icon: "user" }
   ];
+
+  const clientNavTabs = new Set(clientTabs.map((t) => t.id));
+
+  const paymentMethods = [
+    { id: "gopay", name: "GoPay",              tag: "E-Wallet", sub: "Saldo Rp 250.000",        icon: "wallet" },
+    { id: "ovo",   name: "OVO",                tag: "E-Wallet", sub: "Saldo Rp 120.000",        icon: "wallet" },
+    { id: "bca",   name: "BCA Virtual Account",tag: "Bank",     sub: "Transfer via ATM / mobile",icon: "credit" },
+    { id: "cash",  name: "Bayar saat ambil",   tag: "Cash",     sub: "Tunai di outlet",         icon: "cash" }
+  ];
+
+  const serviceIconMap = {
+    "svc-kiloan":   "hanger",
+    "svc-express":  "sparkle",
+    "svc-setrika":  "iron",
+    "svc-satuan":   "bag",
+    "svc-bedcover": "bag"
+  };
 
   const ui = {
     role: "owner",
@@ -40,7 +58,14 @@
     trackedOrderId: "",
     selectedClientId: "",
     reportRange: "today",
-    modal: null
+    modal: null,
+    // client redesign state
+    showSplash: false,
+    historyFilter: "all",
+    clientReportRange: "month",
+    paymentOrderId: "",
+    paymentMethodId: "gopay",
+    createForm: null
   };
 
   let data = loadState();
@@ -49,6 +74,13 @@
     saveState();
   }
   ui.selectedClientId = data.customers[0]?.id || "";
+  ui.createForm = createInitialCreateForm();
+  try {
+    ui.showSplash = !localStorage.getItem(SPLASH_KEY);
+  } catch {
+    ui.showSplash = false;
+  }
+  if (ui.showSplash) ui.role = "client";
   initRouteFromUrl();
 
   const app = document.getElementById("app");
@@ -220,14 +252,29 @@
   }
 
   function render() {
-    app.innerHTML = `
-      <main class="mobile-frame">
-        ${renderTopbar()}
-        ${ui.role === "owner" ? renderOwnerApp() : renderClientApp()}
-      </main>
-      ${renderBottomNav()}
-      ${ui.role === "owner" ? '<button class="fab" type="button" data-action="open-order-form">+ Order</button>' : ""}
-    `;
+    if (ui.showSplash) {
+      app.innerHTML = renderSplashScreen();
+      modalRoot.innerHTML = "";
+      return;
+    }
+
+    if (ui.role === "client") {
+      app.innerHTML = `
+        <main class="c-app">
+          ${renderClientApp()}
+        </main>
+        ${renderClientBottomNav()}
+      `;
+    } else {
+      app.innerHTML = `
+        <main class="mobile-frame">
+          ${renderTopbar()}
+          ${renderOwnerApp()}
+        </main>
+        ${renderBottomNav()}
+        <button class="fab" type="button" data-action="open-order-form">+ Order</button>
+      `;
+    }
     modalRoot.innerHTML = ui.modal ? renderModal(ui.modal) : "";
   }
 
@@ -259,9 +306,11 @@
   }
 
   function renderClientApp() {
-    if (ui.clientTab === "create") return renderClientCreatePage();
-    if (ui.clientTab === "track") return renderClientTrackingPage();
+    if (ui.clientTab === "create")  return renderClientCreatePage();
+    if (ui.clientTab === "track")   return renderClientTrackingPage();
     if (ui.clientTab === "history") return renderClientHistoryPage();
+    if (ui.clientTab === "report")  return renderClientReportPage();
+    if (ui.clientTab === "payment") return renderClientPaymentPage();
     if (ui.clientTab === "profile") return renderClientProfilePage();
     return renderClientHomePage();
   }
@@ -514,131 +563,405 @@
 
   function renderClientHomePage() {
     const customer = getSelectedClient();
-    const activeOrders = getClientOrders(customer.id).filter((order) => order.status !== "completed");
+    const allOrders = getClientOrders(customer.id);
+    const activeOrders = allOrders.filter((order) => order.status !== "completed");
+    const activeOrder = activeOrders.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+    const lastCompleted = allOrders.filter((o) => o.status === "completed").sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))[0];
+    const greet = greetingFor(new Date());
+    const badge = activeOrders.length;
+
     return `
-      <section class="client-hero">
-        <div class="client-hero-row">
-          <img src="assets/laundry-basket.svg" alt="LaundAps" />
-          <div>
-            <p>Laundry kamu, jelas statusnya.</p>
+      <section class="c-page">
+        <div class="c-greet">
+          <div class="c-avatar">${escapeHtml(initials(customer.name))}</div>
+          <div class="c-greet__copy">
+            <p>${escapeHtml(greet)} 👋</p>
             <h2>Halo, ${escapeHtml(firstName(customer.name))}</h2>
           </div>
+          <button class="c-icon-btn c-bell" type="button" data-action="open-client-history" aria-label="Notifikasi">
+            ${icon("bell")}
+            ${badge ? `<span class="c-bell__badge">${badge}</span>` : ""}
+          </button>
         </div>
-        <button class="button secondary" type="button" data-action="open-client-order-form">Buat order laundry</button>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>Order aktif</h3>
-            <p>Cek status tanpa perlu chat berkali-kali.</p>
+
+        ${activeOrder ? renderClientActiveHero(activeOrder) : renderClientEmptyHero(customer)}
+
+        <div class="c-quick-grid">
+          <button class="c-quick-tile" type="button" data-action="go-tab" data-tab="create">
+            <span class="c-quick-tile__icon">${icon("plus")}</span>
+            <span class="c-quick-tile__label">Order\nBaru</span>
+          </button>
+          <button class="c-quick-tile" type="button" data-action="go-tab" data-tab="track">
+            <span class="c-quick-tile__icon c-quick-tile__icon--info">${icon("pin")}</span>
+            <span class="c-quick-tile__label">Lacak</span>
+          </button>
+          <button class="c-quick-tile" type="button" data-action="go-tab" data-tab="history">
+            <span class="c-quick-tile__icon c-quick-tile__icon--warning">${icon("clock")}</span>
+            <span class="c-quick-tile__label">Riwayat</span>
+          </button>
+          <button class="c-quick-tile" type="button" data-action="open-promo">
+            <span class="c-quick-tile__icon c-quick-tile__icon--accent">${icon("gift")}</span>
+            <span class="c-quick-tile__label">Promo</span>
+          </button>
+        </div>
+
+        <button class="c-promo" type="button" data-action="open-promo">
+          <span class="c-promo__icon">${icon("gift")}</span>
+          <div class="c-promo__body">
+            <h4>Diskon 25% hari ini!</h4>
+            <p>Cuci kering minimal 3 kg</p>
           </div>
+          <span class="c-promo__chev">${icon("chev")}</span>
+        </button>
+
+        <div class="c-section-head">
+          <h3>Aktivitas terbaru</h3>
+          <button class="c-link" type="button" data-action="go-tab" data-tab="history">Lihat semua</button>
         </div>
-        ${activeOrders.length ? `<div class="order-list">${activeOrders.map(renderClientOrderCard).join("")}</div>` : renderEmpty("Belum ada order aktif.")}
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>Promo kamu</h3>
-            <p>Poin ${customer.points} bisa dipakai untuk diskon repeat order.</p>
+        ${lastCompleted ? renderClientActivityRow(lastCompleted) : `
+          <div class="c-card c-empty">
+            <div class="c-empty__illust"><span class="p1"></span><span class="p2"></span><span class="p3"></span><span class="p4"></span></div>
+            <strong>Belum ada riwayat</strong>
+            <p>Order pertamamu akan muncul di sini setelah selesai.</p>
           </div>
+        `}
+      </section>
+    `;
+  }
+
+  function renderClientActiveHero(order) {
+    const progress = clientProgressIndex(order.status); // 0..4
+    const step = clientProgressSteps[Math.min(progress, 4)];
+    return `
+      <section class="c-hero" aria-label="Order aktif">
+        <div class="c-hero__row">
+          <div>
+            <p class="c-hero__eyebrow">ORDER AKTIF</p>
+            <h3 class="c-hero__title">${escapeHtml(step.heroTitle)}</h3>
+          </div>
+          <span class="c-pill c-pill--warning">${escapeHtml(getStatus(order.status).client)}</span>
         </div>
-        <div class="estimate-box">
-          <span>Voucher pelanggan aktif</span>
-          <strong>Diskon 10%</strong>
+        <div class="c-hero-progress" aria-label="Progres ${progress + 1} dari 5">
+          ${[0,1,2,3,4].map((i) => `<span class="${i < progress ? "is-done" : i === progress ? "is-current" : ""}"></span>`).join("")}
+        </div>
+        <div class="c-hero__footer">
+          <div>
+            <p>Estimasi selesai</p>
+            <strong>${escapeHtml(formatShortDate(order.dueAt))}</strong>
+          </div>
+          <button class="c-hero__cta" type="button" data-action="track-order" data-id="${order.id}">
+            Lacak ${icon("chev", "#fff")}
+          </button>
         </div>
       </section>
     `;
   }
 
-  function renderClientCreatePage() {
+  function renderClientEmptyHero(customer) {
     return `
-      <section class="page-title">
-        <div>
-          <h2>Buat order</h2>
-          <p>Pilih layanan, cek estimasi, lalu konfirmasi via outlet.</p>
+      <section class="c-hero" aria-label="Belum ada order aktif">
+        <div class="c-hero__row">
+          <div>
+            <p class="c-hero__eyebrow">PELANGGAN ${customer.points ? "· " + customer.points + " POIN" : ""}</p>
+            <h3 class="c-hero__title">Laundry kamu,<br/>jelas statusnya.</h3>
+          </div>
+          <span class="c-pill c-pill--glass">Siap order</span>
+        </div>
+        <div class="c-hero__footer" style="margin-top:18px;">
+          <div>
+            <p>Pickup gratis</p>
+            <strong>Min. 3 kg</strong>
+          </div>
+          <button class="c-hero__cta" type="button" data-action="go-tab" data-tab="create">
+            Pesan ${icon("chev", "#fff")}
+          </button>
         </div>
       </section>
-      <section class="panel">
-        <div class="empty-state">
-          <img src="assets/laundry-basket.svg" alt="" />
-          <strong>Order cepat dari HP</strong>
-          <span>Pelanggan cukup isi layanan, jumlah, dan pilihan pickup atau delivery.</span>
-          <button class="button" type="button" data-action="open-client-order-form">Mulai order</button>
+    `;
+  }
+
+  function renderClientActivityRow(order) {
+    const rating = 5;
+    return `
+      <div class="c-card c-card--pad14">
+        <div class="c-activity-row">
+          <span class="c-activity-row__icon">${icon("check")}</span>
+          <div class="c-activity-row__copy">
+            <strong>Order ${escapeHtml(order.number)}</strong>
+            <span>Selesai · ${escapeHtml(formatShortDate(order.updatedAt))} · ${escapeHtml(formatCurrency(order.total))}</span>
+          </div>
+          <span class="c-stars" aria-label="Rating ${rating} bintang">
+            ${Array.from({ length: rating }, () => icon("star-solid")).join("")}
+          </span>
+        </div>
+      </div>
+    `;
+  }
+
+  function renderClientCreatePage() {
+    const customer = getSelectedClient();
+    const form = ui.createForm;
+    const service = data.services.find((s) => s.id === form.serviceId) || data.services[0];
+    const qty = form.qty || (service.unit === "kg" ? 4 : 1);
+    const subtotal = Math.round(qty * service.price);
+    const fee = 5000;
+    const total = subtotal + fee;
+
+    return `
+      <section class="c-page">
+        <div class="c-page-head">
+          <button class="c-icon-btn" type="button" data-action="go-tab" data-tab="home" aria-label="Kembali">
+            ${icon("chevLeft")}
+          </button>
+          <div class="c-page-head__title">
+            <h1>Buat order</h1>
+            <p>Pilih layanan, jadwal, &amp; alamat</p>
+          </div>
+        </div>
+
+        <h3 class="c-section-label">Pilih layanan</h3>
+        <div class="c-service-grid">
+          ${data.services.map((svc) => renderServiceTile(svc, svc.id === form.serviceId)).join("")}
+        </div>
+
+        <h3 class="c-section-label">Jadwal jemput</h3>
+        <div class="c-chip-row">
+          ${buildDateChips(form.date).map((c) => `
+            <button class="c-date-chip ${c.active ? "is-active" : ""}" type="button" data-action="set-create-date" data-date="${c.key}">
+              <small>${escapeHtml(c.label)}</small>
+              <strong>${escapeHtml(c.date)}</strong>
+            </button>
+          `).join("")}
+        </div>
+        <div class="c-chip-row c-chip-row--time">
+          ${["09:00", "12:00", "15:00", "18:00"].map((t) => `
+            <button class="c-time-chip ${form.time === t ? "is-active" : ""}" type="button" data-action="set-create-time" data-time="${t}">${t}</button>
+          `).join("")}
+        </div>
+
+        <h3 class="c-section-label">Alamat jemput</h3>
+        <div class="c-card c-card--pad14" style="margin-bottom: 20px;">
+          <div class="c-row" style="padding:0;">
+            <span class="c-row__icon">${icon("pin")}</span>
+            <div class="c-row__copy">
+              <strong>Rumah</strong>
+              <span>${escapeHtml(customer.address || "Alamat belum diatur")}</span>
+            </div>
+            <button class="c-row__action" type="button" data-action="edit-address">Ubah</button>
+          </div>
         </div>
       </section>
+
+      <div class="c-sticky-cta">
+        <div class="c-sticky-cta__row">
+          <div class="c-sticky-cta__price">
+            <p>Estimasi biaya</p>
+            <strong>${escapeHtml(formatCurrency(total))}</strong>
+          </div>
+          <span class="c-pill c-pill--primary">~${qty}${service.unit} · ${escapeHtml(service.name)}</span>
+        </div>
+        <button class="c-btn c-btn--accent c-btn--full" type="button" data-action="confirm-client-order">Pesan Sekarang</button>
+      </div>
+    `;
+  }
+
+  function renderServiceTile(service, active) {
+    const iconName = serviceIconMap[service.id] || "bag";
+    const priceLabel = `Rp ${Math.round(service.price / 1000)}k`;
+    return `
+      <button class="c-service-tile ${active ? "is-active" : ""}" type="button" data-action="set-create-service" data-service="${service.id}">
+        <span class="c-service-tile__icon">${icon(iconName)}</span>
+        <span class="c-service-tile__name">${escapeHtml(service.name)}</span>
+        <span class="c-service-tile__price">${priceLabel}<small>/${service.unit}</small></span>
+        <span class="c-service-tile__check">${icon("check", "#fff", 3)}</span>
+      </button>
     `;
   }
 
   function renderClientTrackingPage() {
     const customer = getSelectedClient();
-    const orders = getClientOrders(customer.id).filter((order) => order.status !== "completed");
+    const active = getClientOrders(customer.id).filter((o) => o.status !== "completed");
     const tracked = ui.trackedOrderId ? getOrder(ui.trackedOrderId) : null;
-    const target = tracked || orders[0] || getClientOrders(customer.id)[0];
+    const target = tracked || active[0] || getClientOrders(customer.id)[0];
+
     return `
-      <section class="page-title">
-        <div>
-          <h2>Tracking laundry</h2>
-          <p>Status dibuat simpel supaya mudah dipahami pelanggan.</p>
+      <section class="c-page">
+        <div class="c-page-head">
+          <button class="c-icon-btn" type="button" data-action="go-tab" data-tab="home" aria-label="Kembali">${icon("chevLeft")}</button>
+          <div class="c-page-head__title">
+            <h1>Lacak order</h1>
+            <p>${target ? escapeHtml(target.number) : "Cari invoice kamu"}</p>
+          </div>
+          <button class="c-icon-btn" type="button" data-action="tracking-info" aria-label="Info">${icon("note")}</button>
         </div>
+
+        <form id="tracking-lookup-form" style="display:flex; gap:8px; margin-bottom:16px;">
+          <input class="input" name="query" type="search" placeholder="Nomor invoice, contoh LA-0420-001" value="${escapeAttr(ui.trackingSearch)}"
+                 style="flex:1; height:44px; padding: 0 14px; border:1.5px solid var(--c-line-soft); border-radius:12px; background:#fff; font:500 14px/1 Inter,sans-serif;" />
+          <button class="c-btn c-btn--primary" type="submit" style="height:44px;">Cari</button>
+        </form>
+
+        ${target ? renderClientTrackingDetail(target) : `
+          <div class="c-card c-empty">
+            <div class="c-empty__illust"><span class="p1"></span><span class="p2"></span><span class="p3"></span><span class="p4"></span></div>
+            <strong>Belum ada order untuk dilacak</strong>
+            <p>Buat order laundry dan pantau prosesnya di sini.</p>
+            <button class="c-btn c-btn--primary" type="button" data-action="go-tab" data-tab="create" style="margin-top:8px;">Buat order</button>
+          </div>
+        `}
       </section>
-      <form class="search-row" id="tracking-lookup-form">
-        <input class="input" name="query" type="search" placeholder="Masukkan nomor invoice, contoh LA-0420-001" value="${escapeAttr(ui.trackingSearch)}" />
-        <button class="button" type="submit">Cari</button>
-      </form>
-      ${target ? renderClientTrackingDetail(target) : `<section class="panel">${renderEmpty("Belum ada order untuk dilacak.")}</section>`}
     `;
   }
 
   function renderClientHistoryPage() {
     const customer = getSelectedClient();
-    const orders = getClientOrders(customer.id).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const filters = [
+      ["all", "Semua"],
+      ["process", "Diproses"],
+      ["done", "Selesai"],
+      ["cancel", "Dibatalkan"]
+    ];
+    const filter = ui.historyFilter;
+    const orders = getClientOrders(customer.id)
+      .filter((o) => {
+        if (filter === "process") return !["ready", "completed"].includes(o.status);
+        if (filter === "done") return o.status === "completed";
+        if (filter === "cancel") return o.paymentStatus === "cancelled";
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
     return `
-      <section class="page-title">
-        <div>
-          <h2>Riwayat</h2>
-          <p>Invoice dan transaksi sebelumnya.</p>
+      <section class="c-page">
+        <h1 class="c-page-title">Riwayat</h1>
+        <p class="c-page-subtitle">Semua order kamu di satu tempat</p>
+
+        <div class="c-filter-row" role="tablist" aria-label="Filter riwayat">
+          ${filters.map(([id, label]) => `
+            <button class="c-filter-chip ${filter === id ? "is-active" : ""}" type="button" data-action="set-history-filter" data-filter="${id}">${label}</button>
+          `).join("")}
         </div>
+
+        ${orders.length ? `<div class="c-history-list">${orders.map(renderClientHistoryCard).join("")}</div>` : `
+          <div class="c-card c-empty">
+            <div class="c-empty__illust"><span class="p1"></span><span class="p2"></span><span class="p3"></span><span class="p4"></span></div>
+            <strong>Belum ada order</strong>
+            <p>Yuk pesan laundry pertamamu. Jemput &amp; antar gratis untuk order di atas 3kg.</p>
+            <button class="c-btn c-btn--primary" type="button" data-action="go-tab" data-tab="create" style="margin-top:8px;">Buat Order Pertama</button>
+          </div>
+        `}
       </section>
-      <section class="order-list">
-        ${orders.length ? orders.map(renderClientOrderCard).join("") : renderEmpty("Belum ada riwayat order.")}
-      </section>
+    `;
+  }
+
+  function renderClientHistoryCard(order) {
+    const tone = historyTone(order);
+    const label = historyLabel(order);
+    const rating = order.status === "completed" ? 5 : 0;
+    return `
+      <div class="c-card c-card--pad14">
+        <div class="c-history-card__top">
+          <div class="c-history-card__id">
+            <strong>${escapeHtml(order.number)}</strong>
+            <span>${escapeHtml(order.serviceName)} · ${formatQty(order)}</span>
+          </div>
+          <span class="c-pill c-pill--${tone} c-pill--sm">${escapeHtml(label)}</span>
+        </div>
+        <div class="c-history-card__bottom">
+          <div class="c-history-card__meta">
+            <span>${escapeHtml(formatHistoryDate(order.createdAt))}</span>
+            <strong>${escapeHtml(formatCurrency(order.total))}</strong>
+          </div>
+          ${rating ? `<span class="c-stars">${Array.from({length: rating}, () => icon("star-solid")).join("")}</span>` : `
+            <button class="c-link" type="button" data-action="open-client-order" data-id="${order.id}">Detail ›</button>
+          `}
+        </div>
+      </div>
     `;
   }
 
   function renderClientProfilePage() {
     const customer = getSelectedClient();
+    const totalOrders = getClientOrders(customer.id).length;
+    const tier = customer.points >= 100 ? "GOLD" : customer.points >= 50 ? "SILVER" : "REGULAR";
+
+    const group1 = [
+      { icon: "user",   label: "Data pribadi",        sub: `${firstName(customer.name)}, ${customer.phone}`, action: "profile-personal" },
+      { icon: "pin",    label: "Alamat tersimpan",    sub: customer.address || "Belum ada",                   action: "profile-address" },
+      { icon: "credit", label: "Metode pembayaran",   sub: "GoPay, BCA, Cash",                                action: "profile-payment" }
+    ];
+    const group2 = [
+      { icon: "bell",   label: "Notifikasi",          sub: "Push & WA",                                       action: "profile-notif" },
+      { icon: "gift",   label: "Voucher & poin",      sub: `${customer.points} poin`, badge: "Baru",          action: "profile-voucher" },
+      { icon: "help",   label: "Bantuan",             sub: "FAQ & kontak",                                    action: "profile-help" }
+    ];
+    const group3 = [
+      { icon: "home",   label: "Beralih ke mode bisnis", sub: "Untuk owner & staff", action: "switch-to-owner" },
+      ...data.customers.filter((c) => c.id !== customer.id).slice(0, 2).map((c) => ({
+        icon: "user", label: `Masuk sebagai ${firstName(c.name)}`, sub: c.phone, action: "switch-client", actionData: c.id
+      }))
+    ];
+
     return `
-      <section class="page-title">
-        <div>
-          <h2>Profil pelanggan</h2>
-          <p>Mode demo bisa diganti untuk melihat pengalaman pelanggan lain.</p>
-        </div>
-      </section>
-      <section class="panel">
-        <div class="field">
-          <label for="client-select">Masuk sebagai</label>
-          <select id="client-select" class="select" data-input="select-client">
-            ${data.customers
-              .map(
-                (item) => `<option value="${item.id}" ${item.id === customer.id ? "selected" : ""}>${escapeHtml(item.name)} - ${escapeHtml(item.phone)}</option>`
-              )
-              .join("")}
-          </select>
-        </div>
-      </section>
-      <section class="panel">
-        <div class="customer-row">
-          <div class="avatar">${initials(customer.name)}</div>
-          <div class="row-copy">
-            <strong>${escapeHtml(customer.name)}</strong>
-            <span>${escapeHtml(customer.phone)}</span>
+      <section class="c-page">
+        <div class="c-page-head" style="margin-bottom:14px;">
+          <div class="c-page-head__title">
+            <h1 style="font-size:24px; letter-spacing:-0.3px;">Profil</h1>
           </div>
+          <button class="c-link" type="button" data-action="profile-edit">Edit</button>
         </div>
-        <div class="insight-list" style="margin-top: 12px;">
-          ${renderInsight("Alamat", customer.address, "Dipakai untuk pickup dan delivery")}
-          ${renderInsight("Loyalty points", customer.points, "Bisa ditukar promo")}
-        </div>
+
+        <section class="c-profile-hero">
+          <div class="c-profile-hero__top">
+            <div class="c-avatar c-avatar--lg">${escapeHtml(initials(customer.name))}</div>
+            <div class="c-profile-hero__copy">
+              <strong>${escapeHtml(customer.name)}</strong>
+              <span>${escapeHtml(customer.phone)}</span>
+            </div>
+            <span class="c-profile-hero__badge">${tier}</span>
+          </div>
+          <div class="c-profile-hero__stats">
+            <div class="c-profile-hero__stat">
+              <p>POIN</p>
+              <strong>${customer.points}</strong>
+            </div>
+            <div class="c-profile-hero__stat">
+              <p>TOTAL ORDER</p>
+              <strong>${totalOrders}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="c-card c-card--flush c-settings">
+          ${group1.map(renderSettingsRow).join("")}
+        </section>
+
+        <section class="c-card c-card--flush c-settings">
+          ${group2.map(renderSettingsRow).join("")}
+        </section>
+
+        <section class="c-card c-card--flush c-settings">
+          ${group3.map(renderSettingsRow).join("")}
+        </section>
+
+        <button class="c-logout" type="button" data-action="client-logout">
+          ${icon("logout")} Keluar
+        </button>
       </section>
+    `;
+  }
+
+  function renderSettingsRow(item) {
+    const dataAttr = item.actionData ? `data-id="${escapeAttr(item.actionData)}"` : "";
+    return `
+      <button class="c-settings__row" type="button" data-action="${item.action}" ${dataAttr}>
+        <span class="c-settings__icon">${icon(item.icon)}</span>
+        <div class="c-settings__copy">
+          <strong>${escapeHtml(item.label)}${item.badge ? ` <span class="c-settings__badge">${escapeHtml(item.badge)}</span>` : ""}</strong>
+          <span>${escapeHtml(item.sub)}</span>
+        </div>
+        <span class="c-row__chev">${icon("chev")}</span>
+      </button>
     `;
   }
 
@@ -692,6 +1015,7 @@
   }
 
   function renderClientOrderCard(order) {
+    // Legacy card — kept for compatibility with modals/owner contexts.
     const status = getStatus(order.status);
     return `
       <article class="client-order-card">
@@ -717,60 +1041,108 @@
   }
 
   function renderClientTrackingDetail(order) {
+    const progress = clientProgressIndex(order.status);
+    const step = clientProgressSteps[Math.min(progress, 4)];
+    const customer = getCustomer(order.customerId);
+    const courier = courierForOrder(order);
     return `
-      <section class="timeline-card">
-        <div class="sheet-body">
-          <div class="panel-header">
-            <div>
-              <h3>${escapeHtml(order.number)}</h3>
-              <p>${escapeHtml(order.serviceName)} - ${formatCurrency(order.total)}</p>
-            </div>
-            <span class="status-chip ${getStatus(order.status).tone}">${getStatus(order.status).client}</span>
+      <section class="c-hero" style="margin-bottom:16px;">
+        <div class="c-hero__row">
+          <div>
+            <p class="c-hero__eyebrow">STATUS</p>
+            <h3 class="c-hero__title c-hero__title--lg">${escapeHtml(step.heroTitle)}</h3>
           </div>
-          ${renderClientTimeline(order)}
-          <div class="estimate-box" style="margin-top: 14px;">
-            <span>Estimasi selesai</span>
-            <strong>${formatShortDate(order.dueAt)}</strong>
+          <span class="c-pill c-pill--warning">${escapeHtml(getStatus(order.status).client)}</span>
+        </div>
+        <div class="c-hero__divider">
+          <div>
+            <p>ETA</p>
+            <strong>${escapeHtml(formatShortDate(order.dueAt))}</strong>
           </div>
-          <div class="order-actions">
-            <button class="button secondary" type="button" data-action="client-chat" data-id="${order.id}">Chat laundry</button>
-            <button class="ghost-button" type="button" data-action="open-client-order" data-id="${order.id}">Invoice</button>
-            <button class="ghost-button" type="button" data-action="copy-tracking-link" data-id="${order.id}">Salin link</button>
+          <div>
+            <p>Layanan</p>
+            <strong>${escapeHtml(order.serviceName)} · ${formatQty(order)}</strong>
           </div>
         </div>
       </section>
+
+      <section class="c-card c-courier">
+        <div class="c-courier__avatar">${escapeHtml(initials(courier.name))}</div>
+        <div class="c-courier__copy">
+          <p>KURIR KAMU</p>
+          <strong>${escapeHtml(courier.name)}</strong>
+          <span>${escapeHtml(courier.plate)} · rating ${courier.rating} ★</span>
+        </div>
+        <button class="c-courier__call" type="button" data-action="call-courier" data-id="${order.id}" aria-label="Telepon kurir">
+          ${icon("phone", "#fff")}
+        </button>
+      </section>
+
+      <h3 class="c-section-label" style="margin-top:4px;">Progress laundry</h3>
+      <section class="c-card c-card--pad14">
+        ${renderClientTimeline(order)}
+      </section>
+
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="c-btn c-btn--outline c-btn--full" type="button" data-action="client-chat" data-id="${order.id}">Chat laundry</button>
+        <button class="c-btn c-btn--ghost c-btn--full" type="button" data-action="copy-tracking-link" data-id="${order.id}">Salin link</button>
+      </div>
+      ${order.paymentStatus !== "paid" ? `
+        <button class="c-btn c-btn--accent c-btn--full" type="button" data-action="open-payment" data-id="${order.id}" style="margin-top:10px;">
+          Bayar ${escapeHtml(formatCurrency(order.total))}
+        </button>
+      ` : ""}
     `;
   }
 
+  const clientProgressSteps = [
+    { id: "pickup",   label: "Dijemput",    iconName: "truck",  heroTitle: "Kurir menuju ke lokasi" },
+    { id: "wash",     label: "Dicuci",      iconName: "bag",    heroTitle: "Laundry kamu sedang dicuci" },
+    { id: "dry",      label: "Dikeringkan", iconName: "sparkle",heroTitle: "Dikeringkan dengan cermat" },
+    { id: "pack",     label: "Dikemas",     iconName: "hanger", heroTitle: "Laundry kamu hampir siap 🎉" },
+    { id: "ready",    label: "Siap Antar",  iconName: "check",  heroTitle: "Siap diantar ke kamu" }
+  ];
+
+  function clientProgressIndex(status) {
+    // Maps internal statusFlow to the 5-step client timeline.
+    if (["created", "received", "weighed"].includes(status)) return 0;
+    if (status === "washing") return 1;
+    if (status === "drying") return 2;
+    if (["ironing", "packing"].includes(status)) return 3;
+    if (["ready", "out_for_delivery", "completed"].includes(status)) return 4;
+    return 0;
+  }
+
   function renderClientTimeline(order) {
-    const steps = [
-      { id: "received", label: "Order diterima", desc: "Laundry sudah masuk antrean." },
-      { id: "washing", label: "Sedang dicuci", desc: "Pakaian sedang diproses." },
-      { id: "ironing", label: "Sedang dirapikan", desc: "Setrika dan packing." },
-      { id: "ready", label: "Siap diambil", desc: "Order siap diambil atau dikirim." },
-      { id: "completed", label: "Selesai", desc: "Terima kasih sudah laundry di sini." }
-    ];
-    const orderIndex = statusIndex(order.status);
+    const progress = clientProgressIndex(order.status);
+    const now = new Date();
     return `
-      <div class="timeline">
-        ${steps
-          .map((step, index) => {
-            const threshold = statusIndex(step.id);
-            const done = orderIndex >= threshold;
-            const current = !done && index > 0 && orderIndex < threshold && orderIndex >= statusIndex(steps[index - 1].id);
-            return `
-              <div class="timeline-step ${done ? "done" : ""} ${current ? "current" : ""}">
-                <div class="timeline-dot">${done ? "OK" : index + 1}</div>
-                <div class="timeline-copy">
-                  <strong>${step.label}</strong>
-                  <span>${step.desc}</span>
-                </div>
+      <div class="c-timeline-new">
+        ${clientProgressSteps.map((step, index) => {
+          const done = index < progress;
+          const current = index === progress && order.status !== "completed";
+          const stateClass = done ? "is-done" : current ? "is-current" : "";
+          const time = timelineStepTime(step, index, progress, order, now);
+          return `
+            <div class="c-timeline-new__step ${stateClass}">
+              <span class="c-timeline-new__icon">${icon(step.iconName)}</span>
+              <div class="c-timeline-new__copy">
+                <strong>${escapeHtml(step.label)}</strong>
+                ${current ? `<span class="c-pill c-pill--accent c-pill--sm" style="vertical-align:middle;">Sekarang</span>` : ""}
+                <span>${escapeHtml(time)}</span>
               </div>
-            `;
-          })
-          .join("")}
+            </div>
+          `;
+        }).join("")}
       </div>
     `;
+  }
+
+  function timelineStepTime(step, index, progress, order, now) {
+    if (index < progress) return "Sudah selesai";
+    if (index === progress) return order.status === "completed" ? "Selesai" : "Sedang berlangsung";
+    if (index === progress + 1) return `Estimasi ${formatShortDate(order.dueAt)}`;
+    return "Menunggu";
   }
 
   function renderModal(modal) {
@@ -1062,6 +1434,448 @@
     `;
   }
 
+  // ============================================================
+  //  CLIENT REDESIGN — screens, icons, helpers
+  // ============================================================
+
+  function renderSplashScreen() {
+    return `
+      <section class="c-splash">
+        <div class="c-splash__logo">
+          <img src="assets/laundry-basket.svg" alt="LaundAps" />
+        </div>
+        <div class="c-splash__body">
+          <p class="c-splash__eyebrow">LAUNDAPS</p>
+          <h1 class="c-splash__headline">Laundry kamu,<br/>jelas statusnya.</h1>
+          <p class="c-splash__sub">Pesan, lacak, dan bayar laundry dari HP — tanpa perlu chat bolak-balik.</p>
+          <button class="c-btn c-btn--accent c-btn--full c-btn--lg" type="button" data-action="dismiss-splash">Mulai Sekarang</button>
+          <p class="c-splash__footer">Sudah punya akun? <button type="button" data-action="dismiss-splash">Masuk</button></p>
+        </div>
+      </section>
+    `;
+  }
+
+  function renderClientBottomNav() {
+    const active = clientNavTabs.has(ui.clientTab) ? ui.clientTab : "";
+    return `
+      <nav class="c-bottom-nav" aria-label="Navigasi utama">
+        <div class="c-bottom-nav__inner">
+          ${clientTabs.map((tab) => `
+            <button class="c-nav-item ${active === tab.id ? "is-active" : ""}" type="button" data-action="set-tab" data-tab="${tab.id}">
+              ${icon(tab.icon)}
+              <span>${escapeHtml(tab.label)}</span>
+            </button>
+          `).join("")}
+        </div>
+      </nav>
+    `;
+  }
+
+  function renderClientPaymentPage() {
+    const order = ui.paymentOrderId ? getOrder(ui.paymentOrderId) : null;
+    if (!order) {
+      return `
+        <section class="c-page">
+          <div class="c-page-head">
+            <button class="c-icon-btn" type="button" data-action="go-tab" data-tab="home" aria-label="Kembali">${icon("chevLeft")}</button>
+            <div class="c-page-head__title"><h1>Pembayaran</h1><p>Tidak ada order aktif</p></div>
+          </div>
+          <div class="c-card c-empty">
+            <div class="c-empty__illust"><span class="p1"></span><span class="p2"></span><span class="p3"></span><span class="p4"></span></div>
+            <strong>Belum ada order untuk dibayar</strong>
+            <p>Buat order baru untuk melanjutkan ke pembayaran.</p>
+            <button class="c-btn c-btn--primary" type="button" data-action="go-tab" data-tab="create" style="margin-top:8px;">Buat order</button>
+          </div>
+        </section>
+      `;
+    }
+
+    const pickupFee = order.fulfillment === "pickup" ? 5000 : 0;
+    const deliveryFee = order.fulfillment === "delivery" ? 10000 : 0;
+    const discount = Math.min(order.subtotal, Math.round(order.subtotal * 0.12));
+    const finalTotal = order.total - discount;
+    const activeMethod = paymentMethods.find((m) => m.id === ui.paymentMethodId) || paymentMethods[0];
+
+    return `
+      <section class="c-page">
+        <div class="c-page-head">
+          <button class="c-icon-btn" type="button" data-action="track-order" data-id="${order.id}" aria-label="Kembali">${icon("chevLeft")}</button>
+          <div class="c-page-head__title">
+            <h1>Pembayaran</h1>
+            <p>${escapeHtml(order.number)}</p>
+          </div>
+        </div>
+
+        <section class="c-card" style="margin-bottom:18px;">
+          <h3 class="c-section-label" style="margin-bottom:12px;">Ringkasan biaya</h3>
+          <div class="c-cost-line">
+            <span>${escapeHtml(order.serviceName)} (${formatQty(order)})</span>
+            <strong>${escapeHtml(formatCurrency(order.subtotal))}</strong>
+          </div>
+          ${pickupFee ? `<div class="c-cost-line"><span>Biaya jemput</span><strong>${escapeHtml(formatCurrency(pickupFee))}</strong></div>` : ""}
+          ${deliveryFee ? `<div class="c-cost-line"><span>Biaya antar</span><strong>${escapeHtml(formatCurrency(deliveryFee))}</strong></div>` : ""}
+          ${discount ? `<div class="c-cost-line is-discount"><span>Diskon pelanggan</span><strong>-${escapeHtml(formatCurrency(discount))}</strong></div>` : ""}
+          <div class="c-cost-divider"></div>
+          <div class="c-cost-total">
+            <p>Total bayar</p>
+            <strong>${escapeHtml(formatCurrency(finalTotal))}</strong>
+          </div>
+        </section>
+
+        ${discount ? `
+          <div class="c-voucher-chip">
+            <span class="c-voucher-chip__icon">${icon("gift")}</span>
+            <div class="c-voucher-chip__copy">
+              <strong>Voucher HEMAT8 diterapkan</strong>
+              <span>Hemat ${escapeHtml(formatCurrency(discount))}</span>
+            </div>
+            <button class="c-row__action" type="button" data-action="change-voucher" style="color:var(--c-accent-deep);">Ganti</button>
+          </div>
+        ` : ""}
+
+        <h3 class="c-section-label">Metode pembayaran</h3>
+        <div class="c-method-list">
+          ${paymentMethods.map((m) => `
+            <button class="c-method ${m.id === activeMethod.id ? "is-active" : ""}" type="button" data-action="set-payment-method" data-method="${m.id}">
+              <span class="c-method__icon">${icon(m.icon)}</span>
+              <div class="c-method__body">
+                <div class="c-method__title">
+                  <strong>${escapeHtml(m.name)}</strong>
+                  <span class="c-method__tag">${escapeHtml(m.tag)}</span>
+                </div>
+                <span class="c-method__sub">${escapeHtml(m.sub)}</span>
+              </div>
+              <span class="c-method__radio"></span>
+            </button>
+          `).join("")}
+        </div>
+      </section>
+
+      <div class="c-sticky-cta">
+        <div class="c-sticky-cta__row">
+          <div class="c-sticky-cta__price">
+            <p>Total</p>
+            <strong>${escapeHtml(formatCurrency(finalTotal))}</strong>
+          </div>
+        </div>
+        <button class="c-btn c-btn--accent c-btn--full" type="button" data-action="pay-order" data-id="${order.id}">
+          Bayar dengan ${escapeHtml(activeMethod.name)}
+        </button>
+      </div>
+    `;
+  }
+
+  function renderClientReportPage() {
+    const customer = getSelectedClient();
+    const range = ui.clientReportRange;
+    const stats = computeClientReport(customer.id, range);
+
+    return `
+      <section class="c-page">
+        <h1 class="c-page-title">Laporan</h1>
+        <p class="c-page-subtitle">Pantau pengeluaran laundry kamu</p>
+
+        <div class="c-range-switch" role="tablist">
+          ${[["week","Minggu"],["month","Bulan"],["year","Tahun"]].map(([id, label]) => `
+            <button class="${range === id ? "is-active" : ""}" type="button" data-action="set-client-report-range" data-range="${id}">${label}</button>
+          `).join("")}
+        </div>
+
+        <section class="c-report-hero">
+          <p class="c-report-hero__label">${escapeHtml(stats.heroLabel)}</p>
+          <p class="c-report-hero__value">${escapeHtml(formatCurrency(stats.currentSpend))}</p>
+          <p class="c-report-hero__delta">
+            ${stats.delta != null ? `<b>${stats.delta >= 0 ? "↑" : "↓"} ${Math.abs(stats.delta)}%</b> dibanding periode lalu` : "Data periode ini"}
+          </p>
+        </section>
+
+        <section class="c-card" style="margin-bottom:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <h3 style="margin:0; font:800 13px/1 Inter,sans-serif;">Tren ${range === "year" ? "bulanan" : range === "week" ? "harian" : "6 bulan"}</h3>
+            <span style="font-size:11px; color:var(--c-muted);">dalam ribu Rp</span>
+          </div>
+          <div class="c-bar-chart">
+            ${stats.chart.map((c) => `
+              <div class="c-bar-col ${c.active ? "is-active" : ""}">
+                <span class="c-bar-col__value">${c.valueLabel}</span>
+                <span class="c-bar-col__bar" style="height:${Math.max(4, Math.round(c.ratio * 96))}px;"></span>
+                <span class="c-bar-col__label">${escapeHtml(c.label)}</span>
+              </div>
+            `).join("")}
+          </div>
+        </section>
+
+        <div class="c-stat-duo">
+          <div class="c-card c-card--pad14">
+            <p>TOTAL ORDER</p>
+            <strong>${stats.totalOrders}</strong>
+            <small class="${stats.orderDelta > 0 ? "is-positive" : ""}">${stats.orderDelta > 0 ? "+" : ""}${stats.orderDelta} periode ini</small>
+          </div>
+          <div class="c-card c-card--pad14">
+            <p>RATA-RATA</p>
+            <strong>${escapeHtml(formatShortCurrency(stats.avgOrder))}</strong>
+            <small>per order</small>
+          </div>
+        </div>
+
+        <h3 class="c-section-label" style="margin-top:4px;">Layanan favorit</h3>
+        <section class="c-card c-card--pad14">
+          ${stats.favorites.length ? `
+            <div class="c-fav-list">
+              ${stats.favorites.map((fav, i) => `
+                <div>
+                  <div class="c-fav-item__head">
+                    <strong>${escapeHtml(fav.name)}</strong>
+                    <span>${fav.count} order · ${fav.pct}%</span>
+                  </div>
+                  <div class="c-fav-item__bar">
+                    <span style="width:${fav.pct}%; background:${favColor(i)};"></span>
+                  </div>
+                </div>
+              `).join("")}
+            </div>
+          ` : `<p style="margin:0; color:var(--c-muted); font-size:13px;">Belum ada data cukup untuk periode ini.</p>`}
+        </section>
+      </section>
+    `;
+  }
+
+  // --- Icon system --------------------------------------------
+  const ICON_SVG = {
+    home:    `<path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1v-9.5Z"/>`,
+    plus:    `<path d="M12 5v14M5 12h14"/>`,
+    pin:     `<path d="M12 21s-7-6.5-7-11a7 7 0 1 1 14 0c0 4.5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/>`,
+    chart:   `<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>`,
+    user:    `<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>`,
+    bell:    `<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2H4.5L6 16Z"/><path d="M10 20a2 2 0 0 0 4 0"/>`,
+    search:  `<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>`,
+    chev:    `<path d="m9 6 6 6-6 6"/>`,
+    chevLeft:`<path d="m15 6-6 6 6 6"/>`,
+    check:   `<path d="m5 12 5 5L20 7"/>`,
+    close:   `<path d="M6 6l12 12M18 6 6 18"/>`,
+    sparkle: `<path d="M12 3v5M12 16v5M3 12h5M16 12h5M6 6l3 3M15 15l3 3M18 6l-3 3M9 15l-3 3"/>`,
+    truck:   `<path d="M2 7h12v9H2zM14 10h4l3 3v3h-7"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>`,
+    clock:   `<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>`,
+    credit:  `<rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18M7 15h3"/>`,
+    wallet:  `<path d="M3 7h14a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/><path d="M19 12h-4a2 2 0 0 0 0 4h4"/><path d="M3 7V5a2 2 0 0 1 2-2h10l2 4"/>`,
+    cash:    `<rect x="3" y="7" width="18" height="10" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/>`,
+    bag:     `<path d="M5 8h14l-1.5 12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/>`,
+    hanger:  `<path d="M12 6a2 2 0 1 1 2 2l-2 2v2"/><path d="M4 18 12 12l8 6v2H4z"/>`,
+    iron:    `<path d="M3 16h18l-2-7a4 4 0 0 0-4-3H9a4 4 0 0 0-4 3l-2 7Z"/><path d="M3 20h18"/>`,
+    phone:   `<path d="M4 5c0 9 6 15 15 15l2-3-4-2-2 2a13 13 0 0 1-6-6l2-2-2-4-3 0Z"/>`,
+    note:    `<path d="M6 4h9l5 5v11a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z"/><path d="M14 4v5h5"/>`,
+    gift:    `<rect x="3" y="9" width="18" height="11" rx="1"/><path d="M3 13h18M12 9v11"/><path d="M8 9a3 3 0 0 1 4-4 3 3 0 0 1 4 4"/>`,
+    logout:  `<path d="M9 4h9a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H9"/><path d="m13 12-8 0M8 8l-4 4 4 4"/>`,
+    help:    `<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.5-2.5 4"/><circle cx="12" cy="17" r=".8" fill="currentColor" stroke="none"/>`,
+    "star-solid": `<path d="m12 3 2.6 5.9 6.4.6-4.8 4.4 1.4 6.4L12 17.3 6.4 20.3l1.4-6.4L3 9.5l6.4-.6L12 3Z" fill="currentColor" stroke="none"/>`
+  };
+
+  function icon(name, color = "currentColor", width = 2) {
+    const path = ICON_SVG[name];
+    if (!path) return "";
+    const stroke = name === "star-solid" ? "" : `stroke="${color}" stroke-width="${width}" stroke-linecap="round" stroke-linejoin="round"`;
+    const fill = name === "star-solid" ? `fill="${color}"` : `fill="none"`;
+    const size = name === "star-solid" ? 14 : name === "bell" || name === "search" || name === "clock" || name === "sparkle" || name === "phone" || name === "note" || name === "gift" || name === "logout" || name === "help" ? 18 : name === "chev" || name === "check" || name === "close" ? 16 : name === "chevLeft" ? 18 : 22;
+    return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" ${fill} ${stroke} aria-hidden="true">${path}</svg>`;
+  }
+
+  // --- Form + data helpers ------------------------------------
+
+  function createInitialCreateForm() {
+    const firstService = data?.services?.[0];
+    return {
+      serviceId: firstService?.id || "",
+      date: "today",
+      time: "12:00",
+      qty: firstService && firstService.unit === "kg" ? 4 : 1
+    };
+  }
+
+  function greetingFor(date) {
+    const h = date.getHours();
+    if (h < 11) return "Selamat pagi";
+    if (h < 15) return "Selamat siang";
+    if (h < 19) return "Selamat sore";
+    return "Selamat malam";
+  }
+
+  function buildDateChips(activeKey) {
+    const names = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+    const today = new Date();
+    return Array.from({ length: 4 }, (_, i) => {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const key = i === 0 ? "today" : i === 1 ? "tomorrow" : `day+${i}`;
+      const label = i === 0 ? "Hari ini" : i === 1 ? "Besok" : names[d.getDay()];
+      const date = `${d.getDate()} ${months[d.getMonth()]}`;
+      return { key, label, date, active: activeKey === key };
+    });
+  }
+
+  function historyTone(order) {
+    if (order.status === "completed") return "success";
+    if (["ready", "out_for_delivery"].includes(order.status)) return "primary";
+    return "warning";
+  }
+
+  function historyLabel(order) {
+    if (order.status === "completed") return "Selesai";
+    if (order.status === "ready") return "Siap ambil";
+    if (order.status === "out_for_delivery") return "Dikirim";
+    return "Diproses";
+  }
+
+  function formatHistoryDate(value) {
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+    const d = new Date(value);
+    return `${String(d.getDate()).padStart(2, "0")} ${months[d.getMonth()]} ${d.getFullYear()}`;
+  }
+
+  function courierForOrder(order) {
+    const names = [
+      { name: "Budi Santoso",   plate: "D 1234 ABC", rating: 4.9 },
+      { name: "Sari Kurniawan", plate: "D 5678 XYZ", rating: 4.8 },
+      { name: "Agus Wahyudi",   plate: "D 9012 JKL", rating: 4.9 }
+    ];
+    const idx = order ? Math.abs(hashCode(order.id)) % names.length : 0;
+    return names[idx];
+  }
+
+  function hashCode(str) {
+    let h = 0;
+    for (let i = 0; i < str.length; i++) h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+    return h;
+  }
+
+  function formatShortCurrency(value) {
+    if (value >= 1_000_000) return `Rp ${(value / 1_000_000).toFixed(1)}jt`;
+    if (value >= 1_000) return `Rp ${Math.round(value / 1_000)}k`;
+    return formatCurrency(value);
+  }
+
+  function favColor(i) {
+    return i === 0 ? "var(--c-primary)" : i === 1 ? "var(--c-info)" : "var(--c-accent)";
+  }
+
+  function computeClientReport(customerId, range) {
+    const now = new Date();
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+    const allOrders = getClientOrders(customerId);
+    const paid = allOrders.filter((o) => o.paymentStatus === "paid");
+
+    // current period orders
+    let inPeriod, previous;
+    let heroLabel;
+    let chart = [];
+
+    if (range === "week") {
+      heroLabel = "PENGELUARAN MINGGU INI";
+      inPeriod = paid.filter((o) => daysBetween(o.createdAt, now) <= 7);
+      previous = paid.filter((o) => {
+        const d = daysBetween(o.createdAt, now);
+        return d > 7 && d <= 14;
+      });
+      chart = buildDailyChart(paid, now);
+    } else if (range === "year") {
+      heroLabel = `PENGELUARAN ${now.getFullYear()}`;
+      inPeriod = paid.filter((o) => new Date(o.createdAt).getFullYear() === now.getFullYear());
+      previous = paid.filter((o) => new Date(o.createdAt).getFullYear() === now.getFullYear() - 1);
+      chart = buildYearChart(paid, now);
+    } else {
+      heroLabel = `PENGELUARAN ${months[now.getMonth()].toUpperCase()}`;
+      inPeriod = paid.filter((o) => isSameMonth(o.createdAt, now));
+      const prevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 15);
+      previous = paid.filter((o) => isSameMonth(o.createdAt, prevMonth));
+      chart = build6MonthChart(paid, now);
+    }
+
+    const currentSpend = sumOrders(inPeriod);
+    const prevSpend = sumOrders(previous);
+    const delta = prevSpend > 0 ? Math.round(((currentSpend - prevSpend) / prevSpend) * 100) : (currentSpend > 0 ? 100 : null);
+
+    // All-time total orders for stat duo feels more honest — but spec says "+ periode"
+    const totalOrders = allOrders.length;
+    const periodOrderCount = range === "week"
+      ? allOrders.filter((o) => daysBetween(o.createdAt, now) <= 7).length
+      : range === "year"
+        ? allOrders.filter((o) => new Date(o.createdAt).getFullYear() === now.getFullYear()).length
+        : allOrders.filter((o) => isSameMonth(o.createdAt, now)).length;
+
+    const avgOrder = allOrders.length ? Math.round(sumOrders(allOrders) / allOrders.length) : 0;
+
+    // favorites top 3
+    const map = new Map();
+    allOrders.forEach((o) => {
+      const cur = map.get(o.serviceId) || { name: o.serviceName, count: 0 };
+      cur.count += 1;
+      map.set(o.serviceId, cur);
+    });
+    const favArr = Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, 3);
+    const favTotal = favArr.reduce((s, f) => s + f.count, 0) || 1;
+    const favorites = favArr.map((f) => ({
+      name: f.name,
+      count: f.count,
+      pct: Math.round((f.count / favTotal) * 100)
+    }));
+
+    return {
+      heroLabel,
+      currentSpend,
+      delta,
+      totalOrders,
+      orderDelta: periodOrderCount,
+      avgOrder,
+      favorites,
+      chart
+    };
+  }
+
+  function build6MonthChart(paid, now) {
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+    const arr = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 15);
+      const sum = sumOrders(paid.filter((o) => isSameMonth(o.createdAt, d)));
+      arr.push({ label: months[d.getMonth()], value: sum });
+    }
+    return normalizeChart(arr);
+  }
+
+  function buildDailyChart(paid, now) {
+    const names = ["Min", "Sen", "Sel", "Rab", "Kam", "Jum", "Sab"];
+    const arr = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const sum = sumOrders(paid.filter((o) => isSameDay(o.createdAt, d)));
+      arr.push({ label: names[d.getDay()], value: sum });
+    }
+    return normalizeChart(arr);
+  }
+
+  function buildYearChart(paid, now) {
+    const months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Ags", "Sep", "Okt", "Nov", "Des"];
+    const arr = [];
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), i, 15);
+      const sum = sumOrders(paid.filter((o) => isSameMonth(o.createdAt, d)));
+      arr.push({ label: months[i], value: sum });
+    }
+    return normalizeChart(arr).slice(-6);
+  }
+
+  function normalizeChart(arr) {
+    const max = Math.max(1, ...arr.map((a) => a.value));
+    const activeIdx = arr.reduce((best, a, i) => (a.value > arr[best].value ? i : best), 0);
+    return arr.map((a, i) => ({
+      label: a.label,
+      ratio: a.value / max,
+      valueLabel: a.value ? Math.round(a.value / 1000).toString() : "",
+      active: i === activeIdx && a.value > 0
+    }));
+  }
+
   function handleClick(event) {
     const actionEl = event.target.closest("[data-action]");
     if (!actionEl) return;
@@ -1157,6 +1971,234 @@
       showToast("Data demo sudah direset.");
       render();
     }
+
+    // --- Client redesign handlers ---
+
+    if (action === "dismiss-splash") {
+      try { localStorage.setItem(SPLASH_KEY, "1"); } catch {}
+      ui.showSplash = false;
+      render();
+    }
+
+    if (action === "go-tab") {
+      const tab = actionEl.dataset.tab;
+      if (tab) {
+        ui.clientTab = tab;
+        render();
+      }
+    }
+
+    if (action === "open-client-history") {
+      ui.clientTab = "history";
+      render();
+    }
+
+    if (action === "open-promo") {
+      showToast("Promo akan segera hadir.");
+    }
+
+    if (action === "track-order") {
+      const id = actionEl.dataset.id;
+      ui.clientTab = "track";
+      if (id) {
+        ui.trackedOrderId = id;
+        setTrackingParam(id);
+      }
+      render();
+    }
+
+    if (action === "set-create-service") {
+      const svcId = actionEl.dataset.service;
+      const svc = data.services.find((s) => s.id === svcId);
+      if (svc) {
+        ui.createForm.serviceId = svcId;
+        ui.createForm.qty = svc.unit === "kg" ? 4 : 1;
+        render();
+      }
+    }
+
+    if (action === "set-create-date") {
+      ui.createForm.date = actionEl.dataset.date;
+      render();
+    }
+
+    if (action === "set-create-time") {
+      ui.createForm.time = actionEl.dataset.time;
+      render();
+    }
+
+    if (action === "edit-address") {
+      showToast("Ubah alamat akan hadir di versi berikutnya.");
+    }
+
+    if (action === "confirm-client-order") {
+      confirmClientOrder();
+    }
+
+    if (action === "tracking-info") {
+      showToast("Detail tracking akan hadir di versi berikutnya.");
+    }
+
+    if (action === "call-courier") {
+      const id = actionEl.dataset.id;
+      const order = id ? getOrder(id) : null;
+      if (order?.phone) {
+        window.open(`tel:${order.phone}`, "_self");
+      } else {
+        showToast("Nomor kurir belum tersedia.");
+      }
+    }
+
+    if (action === "set-history-filter") {
+      ui.historyFilter = actionEl.dataset.filter;
+      render();
+    }
+
+    if (action === "open-payment") {
+      const id = actionEl.dataset.id;
+      if (id) ui.paymentOrderId = id;
+      ui.clientTab = "payment";
+      render();
+    }
+
+    if (action === "change-voucher") {
+      showToast("Pilihan voucher akan hadir di versi berikutnya.");
+    }
+
+    if (action === "set-payment-method") {
+      ui.paymentMethodId = actionEl.dataset.method;
+      render();
+    }
+
+    if (action === "pay-order") {
+      const id = actionEl.dataset.id;
+      const order = id ? getOrder(id) : null;
+      if (order) {
+        order.paymentStatus = "paid";
+        const method = paymentMethods.find((m) => m.id === ui.paymentMethodId);
+        order.paymentMethod = method ? method.name : "Tunai/QRIS";
+        order.updatedAt = new Date().toISOString();
+        saveState();
+        showToast(`Pembayaran ${order.number} berhasil.`);
+        ui.trackedOrderId = order.id;
+        ui.paymentOrderId = "";
+        ui.clientTab = "track";
+        setTrackingParam(order.id);
+        render();
+      }
+    }
+
+    if (action === "set-client-report-range") {
+      ui.clientReportRange = actionEl.dataset.range;
+      render();
+    }
+
+    if (action === "switch-to-owner") {
+      ui.role = "owner";
+      ui.ownerTab = "dashboard";
+      render();
+    }
+
+    if (action === "switch-client") {
+      const id = actionEl.dataset.id;
+      if (id) {
+        ui.selectedClientId = id;
+        render();
+      }
+    }
+
+    if (action === "client-logout") {
+      try { localStorage.removeItem(SPLASH_KEY); } catch {}
+      ui.showSplash = true;
+      ui.role = "client";
+      ui.clientTab = "home";
+      showToast("Kamu sudah keluar. Sampai jumpa lagi!");
+      render();
+    }
+
+    if (action === "profile-personal" || action === "profile-edit") {
+      showToast("Edit profil akan hadir di versi berikutnya.");
+    }
+
+    if (action === "profile-address") {
+      showToast("Atur alamat akan hadir di versi berikutnya.");
+    }
+
+    if (action === "profile-payment") {
+      showToast("Atur metode pembayaran akan hadir di versi berikutnya.");
+    }
+
+    if (action === "profile-notif") {
+      showToast("Pengaturan notifikasi akan hadir di versi berikutnya.");
+    }
+
+    if (action === "profile-voucher") {
+      showToast("Voucher & promo akan hadir di versi berikutnya.");
+    }
+
+    if (action === "profile-help") {
+      showToast("Pusat bantuan akan hadir di versi berikutnya.");
+    }
+  }
+
+  function confirmClientOrder() {
+    const customer = getSelectedClient();
+    if (!customer) {
+      showToast("Profil pelanggan belum tersedia.");
+      return;
+    }
+    const form = ui.createForm || createInitialCreateForm();
+    const service = data.services.find((s) => s.id === form.serviceId) || data.services[0];
+    if (!service) {
+      showToast("Layanan tidak tersedia.");
+      return;
+    }
+    const qty = Math.max(0.5, Number(form.qty) || (service.unit === "kg" ? 4 : 1));
+    const fulfillment = "pickup";
+    const deliveryFee = 5000;
+    const subtotal = Math.round(qty * service.price);
+    const now = new Date();
+    const dayOffset = form.date === "today" ? 0 : form.date === "tomorrow" ? 1 : Number(String(form.date).split("+")[1] || 0);
+    const [hh, mm] = String(form.time || "12:00").split(":").map((v) => Number(v) || 0);
+    const pickupAt = new Date(now);
+    pickupAt.setDate(pickupAt.getDate() + dayOffset);
+    pickupAt.setHours(hh, mm, 0, 0);
+
+    const order = {
+      id: createId("ord"),
+      number: makeOrderNumber(data.sequence, now),
+      customerId: customer.id,
+      customerName: customer.name,
+      phone: customer.phone,
+      address: customer.address,
+      serviceId: service.id,
+      serviceName: service.name,
+      unit: service.unit,
+      qty,
+      subtotal,
+      deliveryFee,
+      total: subtotal + deliveryFee,
+      fulfillment,
+      paymentStatus: "unpaid",
+      paymentMethod: "Bayar nanti",
+      status: "created",
+      notes: `Jemput: ${form.time}`,
+      createdAt: now.toISOString(),
+      dueAt: addHours(pickupAt, service.etaHours).toISOString(),
+      updatedAt: now.toISOString()
+    };
+
+    data.sequence += 1;
+    data.orders.unshift(order);
+    customer.points += Math.floor(order.total / 10000);
+    saveState();
+
+    ui.createForm = createInitialCreateForm();
+    ui.paymentOrderId = order.id;
+    ui.trackedOrderId = order.id;
+    ui.clientTab = "payment";
+    showToast(`Order ${order.number} dibuat. Lanjut ke pembayaran.`);
+    render();
   }
 
   function handleSubmit(event) {
