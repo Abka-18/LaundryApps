@@ -1,6 +1,8 @@
 (() => {
-  const STORAGE_KEY = "laundaps.state.v1";
-  const SPLASH_KEY = "laundaps.splash.seen.v1";
+  const STORAGE_KEY  = "laundaps.state.v1";
+  const SPLASH_KEY   = "laundaps.splash.seen.v1";   // legacy key kept for compatibility
+  const ACCOUNTS_KEY = "laundaps.accounts.v1";
+  const SESSION_KEY  = "laundaps.session.v1";
 
   const statusFlow = [
     { id: "created", label: "Order dibuat", client: "Order diterima", tone: "info" },
@@ -88,9 +90,13 @@
     selectedClientId: "",
     reportRange: "today",
     modal: null,
-    // client redesign state
-    showSplash: false,
+    // launch flow: "role-select" | "onboarding" | "auth" | null
+    launchStep: null,
+    onboardingRole: "client",
     onboardingStep: 0,
+    authMode: "login",      // "login" | "register"
+    authError: "",
+    // client state
     historyFilter: "all",
     clientReportRange: "month",
     paymentOrderId: "",
@@ -105,12 +111,16 @@
   }
   ui.selectedClientId = data.customers[0]?.id || "";
   ui.createForm = createInitialCreateForm();
-  try {
-    ui.showSplash = !localStorage.getItem(SPLASH_KEY);
-  } catch {
-    ui.showSplash = false;
+
+  // Determine launch step from persisted session
+  const _session = loadSession();
+  if (_session) {
+    ui.role = _session.role;
+    if (_session.customerId) ui.selectedClientId = _session.customerId;
+    ui.launchStep = null;
+  } else {
+    ui.launchStep = "role-select";
   }
-  if (ui.showSplash) ui.role = "client";
   initRouteFromUrl();
 
   const app = document.getElementById("app");
@@ -136,6 +146,22 @@
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  }
+
+  function loadSession() {
+    try { const r = localStorage.getItem(SESSION_KEY); return r ? JSON.parse(r) : null; } catch { return null; }
+  }
+  function saveSession(session) {
+    try { localStorage.setItem(SESSION_KEY, JSON.stringify(session)); } catch {}
+  }
+  function clearSession() {
+    try { localStorage.removeItem(SESSION_KEY); } catch {}
+  }
+  function loadAccounts() {
+    try { const r = localStorage.getItem(ACCOUNTS_KEY); return r ? JSON.parse(r) : []; } catch { return []; }
+  }
+  function saveAccounts(accounts) {
+    try { localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts)); } catch {}
   }
 
   function seedData() {
@@ -282,8 +308,8 @@
   }
 
   function render() {
-    if (ui.showSplash) {
-      app.innerHTML = renderOnboardingScreen();
+    if (ui.launchStep) {
+      app.innerHTML = renderLaunchScreen();
       modalRoot.innerHTML = "";
       return;
     }
@@ -587,6 +613,17 @@
           </div>
         </div>
         <button class="danger-button" type="button" data-action="reset-demo">Reset data demo</button>
+      </section>
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h3>Akun</h3>
+            <p>Keluar dari sesi ini.</p>
+          </div>
+        </div>
+        <button class="c-logout" type="button" data-action="owner-logout">
+          ${icon("logout")} Keluar dari akun
+        </button>
       </section>
     `;
   }
@@ -1561,8 +1598,59 @@
     }
   ]; }
 
+  // ── Launch flow dispatcher ──────────────────────────────────
+  function renderLaunchScreen() {
+    if (ui.launchStep === "role-select") return renderRoleSelectScreen();
+    if (ui.launchStep === "onboarding")  return renderOnboardingScreen();
+    if (ui.launchStep === "auth")        return renderAuthScreen();
+    return "";
+  }
+
+  // ── Role selection ───────────────────────────────────────────
+  function renderRoleSelectScreen() {
+    return `
+      <section class="c-role-select">
+        <div class="c-role-select__hero">
+          <div class="c-role-select__logo-wrap">
+            <img src="assets/laundry-basket.svg" alt="LaundAps" />
+          </div>
+          <p class="c-role-select__app">LaundAps</p>
+          <h1 class="c-role-select__title">Kamu siapa?</h1>
+          <p class="c-role-select__sub">Pilih peran agar kami bisa menyesuaikan pengalaman terbaik untukmu.</p>
+        </div>
+
+        <div class="c-role-select__cards">
+          <button class="c-role-card" type="button" data-action="select-role" data-role="owner">
+            <div class="c-role-card__icon c-role-card__icon--owner">
+              ${icon("chart", "var(--c-primary)")}
+            </div>
+            <div class="c-role-card__body">
+              <strong>Owner / Staff</strong>
+              <span>Kelola order, pelanggan, dan laporan bisnis laundry.</span>
+            </div>
+            <span class="c-role-card__arrow">${icon("chev", "var(--c-muted)")}</span>
+          </button>
+
+          <button class="c-role-card" type="button" data-action="select-role" data-role="client">
+            <div class="c-role-card__icon c-role-card__icon--client">
+              ${icon("hanger", "var(--c-accent)")}
+            </div>
+            <div class="c-role-card__body">
+              <strong>Pelanggan</strong>
+              <span>Pesan, lacak, dan bayar laundry langsung dari HP.</span>
+            </div>
+            <span class="c-role-card__arrow">${icon("chev", "var(--c-muted)")}</span>
+          </button>
+        </div>
+
+        <p class="c-role-select__footer">Sudah punya akun? Pilih peran yang sama untuk masuk.</p>
+      </section>
+    `;
+  }
+
+  // ── Client onboarding slides (existing) ─────────────────────
   function renderOnboardingScreen() {
-    const slides = getOnboardingSlides();
+    const slides = ui.onboardingRole === "owner" ? getOwnerOnboardingSlides() : getOnboardingSlides();
     const step = ui.onboardingStep;
     const s = slides[step];
     const total = slides.length;
@@ -1597,9 +1685,185 @@
             ` : ""}
             <button class="c-btn ${isLast ? "c-btn--accent" : "c-btn--primary"} c-ob__next-btn" type="button"
               data-action="${isLast ? "skip-onboarding" : "next-onboarding"}">
-              ${isLast ? "Mulai Sekarang" : "Lanjut →"}
+              ${isLast ? "Selanjutnya →" : "Lanjut →"}
             </button>
           </div>
+        </div>
+      </section>
+    `;
+  }
+
+  // ── Owner onboarding slides ──────────────────────────────────
+  function getOwnerOnboardingSlides() { return [
+    {
+      illustClass: "c-ob__illust--owner-1",
+      illust: `
+        <div class="c-ob__owner-art">
+          <div class="c-ob__mock-dashboard">
+            <div class="c-ob__mock-stat-row">
+              <div class="c-ob__mock-stat"><span class="num">12</span><small>Order Hari Ini</small></div>
+              <div class="c-ob__mock-stat is-accent"><span class="num">Rp 480k</span><small>Omzet</small></div>
+            </div>
+            <div class="c-ob__mock-order-row">
+              <span class="c-ob__mock-badge is-warning">Diproses</span>
+              <span>Rani W. · Cuci Kiloan · 4 kg</span>
+            </div>
+            <div class="c-ob__mock-order-row">
+              <span class="c-ob__mock-badge is-success">Siap</span>
+              <span>Dimas P. · Express · 2 kg</span>
+            </div>
+          </div>
+          <div class="c-ob__deco c-ob__deco--1"></div>
+          <div class="c-ob__deco c-ob__deco--2"></div>
+        </div>
+      `,
+      eyebrow: "DASHBOARD BISNIS",
+      title: "Pantau semua order dari satu layar",
+      sub: "Lihat order masuk, status cucian, dan omzet hari ini dalam satu tampilan yang ringkas."
+    },
+    {
+      illustClass: "c-ob__illust--owner-2",
+      illust: `
+        <div class="c-ob__owner-art">
+          <div class="c-ob__mock-order-list">
+            ${[
+              { no: "LA-0422-001", name: "Rani Wijaya",  svc: "Cuci Kiloan", status: "Dicuci",   tone: "info" },
+              { no: "LA-0422-002", name: "Dimas P.",     svc: "Express",     status: "Siap",     tone: "success" },
+              { no: "LA-0422-003", name: "Maya L.",      svc: "Setrika",     status: "Menunggu", tone: "warning" }
+            ].map(o => `
+              <div class="c-ob__mock-order-item">
+                <div>
+                  <strong>${o.no}</strong>
+                  <span>${o.name} · ${o.svc}</span>
+                </div>
+                <span class="c-ob__mock-badge is-${o.tone}">${o.status}</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `,
+      eyebrow: "KELOLA ORDER",
+      title: "Update status cucian dengan satu tap",
+      sub: "Dari diterima hingga siap antar — geser status order tanpa perlu buka-buka buku."
+    },
+    {
+      illustClass: "c-ob__illust--owner-3",
+      illust: `
+        <div class="c-ob__owner-art">
+          <div class="c-ob__mock-chart-card">
+            <div class="c-ob__pay-chart" style="height:90px;padding:14px 16px;">
+              ${[40,60,35,80,55,90,70].map((h,i) => `
+                <div class="c-ob__pay-col">
+                  <span class="c-ob__pay-bar ${i===5?"is-active":""}" style="height:${h}%"></span>
+                </div>`).join("")}
+            </div>
+            <div class="c-ob__mock-stat-row" style="padding:0 14px 14px;">
+              <div class="c-ob__mock-stat"><span class="num">Rp 3.2jt</span><small>Bulan ini</small></div>
+              <div class="c-ob__mock-stat"><span class="num">+18%</span><small>vs bulan lalu</small></div>
+            </div>
+          </div>
+        </div>
+      `,
+      eyebrow: "LAPORAN OTOMATIS",
+      title: "Analitik bisnis lengkap tiap bulan",
+      sub: "Lihat tren omzet, layanan terlaris, dan performa bisnis — otomatis, tanpa hitung manual."
+    },
+    {
+      illustClass: "c-ob__illust--owner-4",
+      illust: `
+        <div class="c-ob__owner-art">
+          <div class="c-ob__mock-wa-card">
+            <div class="c-ob__mock-wa-header">
+              ${icon("phone", "#fff")}
+              <span>WhatsApp Otomatis</span>
+            </div>
+            <div class="c-ob__mock-wa-bubble">
+              Halo Rani 👋, laundry kamu LA-0422-001 sudah siap diambil! Total: Rp 36.000.
+            </div>
+            <div class="c-ob__mock-wa-bubble is-sent">Terima kasih! Nanti saya ambil. 😊</div>
+          </div>
+          <div class="c-ob__deco c-ob__deco--3"></div>
+        </div>
+      `,
+      eyebrow: "NOTIFIKASI PELANGGAN",
+      title: "Kirim update via WhatsApp otomatis",
+      sub: "Satu klik, pelanggan langsung dapat notifikasi status laundry mereka via WA."
+    }
+  ]; }
+
+  // ── Auth screen (login / register) ──────────────────────────
+  function renderAuthScreen() {
+    const role = ui.onboardingRole;
+    const mode = ui.authMode;
+    const isOwner = role === "owner";
+    const isRegister = mode === "register";
+
+    const accent = isOwner ? "var(--c-primary)" : "var(--c-accent)";
+    const roleName = isOwner ? "Owner" : "Pelanggan";
+
+    return `
+      <section class="c-auth">
+        <div class="c-auth__head">
+          <button class="c-auth__back" type="button" data-action="auth-back" aria-label="Kembali">
+            ${icon("chevLeft")}
+          </button>
+          <div class="c-auth__brand">
+            <img src="assets/laundry-basket.svg" alt="LaundAps" />
+            <span>LaundAps</span>
+          </div>
+        </div>
+
+        <div class="c-auth__body">
+          <div class="c-auth__role-badge" style="background:${isOwner ? "var(--c-primary-soft)" : "var(--c-accent-soft)"}; color:${accent};">
+            ${isOwner ? icon("chart", accent) : icon("hanger", accent)}
+            ${escapeHtml(roleName)}
+          </div>
+
+          <h1 class="c-auth__title">${isRegister ? "Buat akun baru" : "Masuk ke akun"}</h1>
+          <p class="c-auth__sub">${isRegister ? "Isi data di bawah untuk mulai." : "Masukkan nomor & kata sandi kamu."}</p>
+
+          <div class="c-auth__toggle" role="tablist">
+            <button class="${mode === "login" ? "is-active" : ""}" type="button" data-action="toggle-auth-mode" data-mode="login">Masuk</button>
+            <button class="${mode === "register" ? "is-active" : ""}" type="button" data-action="toggle-auth-mode" data-mode="register">Daftar</button>
+          </div>
+
+          ${ui.authError ? `<p class="c-auth__error">${escapeHtml(ui.authError)}</p>` : ""}
+
+          <form class="c-auth__form" id="auth-form" data-role="${escapeAttr(role)}" data-mode="${escapeAttr(mode)}" novalidate>
+            ${isRegister ? `
+              <div class="c-auth__field">
+                <label for="auth-name">Nama lengkap</label>
+                <input class="input" id="auth-name" name="name" type="text" placeholder="Contoh: Rani Wijaya" autocomplete="name" required />
+              </div>
+              ${isOwner ? `
+                <div class="c-auth__field">
+                  <label for="auth-outlet">Nama laundry / outlet</label>
+                  <input class="input" id="auth-outlet" name="outlet" type="text" placeholder="Contoh: LaundAps Clean" autocomplete="organization" required />
+                </div>
+              ` : ""}
+            ` : ""}
+
+            <div class="c-auth__field">
+              <label for="auth-phone">Nomor WhatsApp</label>
+              <input class="input" id="auth-phone" name="phone" type="tel" placeholder="08xxxxxxxxxx" autocomplete="tel" required />
+            </div>
+
+            <div class="c-auth__field">
+              <label for="auth-password">Kata sandi</label>
+              <input class="input" id="auth-password" name="password" type="password" placeholder="${isRegister ? "Min. 6 karakter" : "Kata sandimu"}" autocomplete="${isRegister ? "new-password" : "current-password"}" required />
+            </div>
+
+            <button class="c-btn c-btn--${isOwner ? "primary" : "accent"} c-btn--full c-btn--lg" type="submit" style="margin-top:8px;">
+              ${isRegister ? "Buat Akun" : "Masuk"}
+            </button>
+          </form>
+
+          <p class="c-auth__switch">
+            ${isRegister ? "Sudah punya akun?" : "Belum punya akun?"}
+            <button type="button" data-action="toggle-auth-mode" data-mode="${isRegister ? "login" : "register"}">
+              ${isRegister ? "Masuk" : "Daftar sekarang"}
+            </button>
+          </p>
         </div>
       </section>
     `;
@@ -2096,15 +2360,26 @@
 
     // --- Client redesign handlers ---
 
-    if (action === "dismiss-splash" || action === "skip-onboarding") {
-      try { localStorage.setItem(SPLASH_KEY, "1"); } catch {}
-      ui.showSplash = false;
+    // ── Launch flow handlers ──────────────────────────────────
+
+    if (action === "select-role") {
+      ui.onboardingRole = actionEl.dataset.role || "client";
       ui.onboardingStep = 0;
+      ui.launchStep = "onboarding";
+      render();
+    }
+
+    if (action === "skip-onboarding" || action === "dismiss-splash") {
+      ui.onboardingStep = 0;
+      ui.authMode = "login";
+      ui.authError = "";
+      ui.launchStep = "auth";
       render();
     }
 
     if (action === "next-onboarding") {
-      if (ui.onboardingStep < getOnboardingSlides().length - 1) {
+      const slides = ui.onboardingRole === "owner" ? getOwnerOnboardingSlides() : getOnboardingSlides();
+      if (ui.onboardingStep < slides.length - 1) {
         ui.onboardingStep += 1;
         render();
       }
@@ -2119,10 +2394,23 @@
 
     if (action === "set-onboarding-step") {
       const step = Number(actionEl.dataset.step);
-      if (!isNaN(step) && step >= 0 && step < getOnboardingSlides().length) {
+      const slides = ui.onboardingRole === "owner" ? getOwnerOnboardingSlides() : getOnboardingSlides();
+      if (!isNaN(step) && step >= 0 && step < slides.length) {
         ui.onboardingStep = step;
         render();
       }
+    }
+
+    if (action === "auth-back") {
+      ui.onboardingStep = 0;
+      ui.launchStep = ui.launchStep === "auth" ? "onboarding" : "role-select";
+      render();
+    }
+
+    if (action === "toggle-auth-mode") {
+      ui.authMode = actionEl.dataset.mode || "login";
+      ui.authError = "";
+      render();
     }
 
     if (action === "go-tab") {
@@ -2252,12 +2540,28 @@
       }
     }
 
-    if (action === "client-logout") {
-      try { localStorage.removeItem(SPLASH_KEY); } catch {}
-      ui.showSplash = true;
+    if (action === "owner-logout") {
+      clearSession();
       ui.onboardingStep = 0;
+      ui.onboardingRole = "owner";
+      ui.authMode = "login";
+      ui.authError = "";
+      ui.role = "owner";
+      ui.ownerTab = "dashboard";
+      ui.launchStep = "role-select";
+      showToast("Kamu sudah keluar. Sampai jumpa lagi!");
+      render();
+    }
+
+    if (action === "client-logout") {
+      clearSession();
+      ui.onboardingStep = 0;
+      ui.onboardingRole = "client";
+      ui.authMode = "login";
+      ui.authError = "";
       ui.role = "client";
       ui.clientTab = "home";
+      ui.launchStep = "role-select";
       showToast("Kamu sudah keluar. Sampai jumpa lagi!");
       render();
     }
@@ -2348,6 +2652,11 @@
   }
 
   function handleSubmit(event) {
+    if (event.target.id === "auth-form") {
+      event.preventDefault();
+      handleAuthSubmit(event.target);
+    }
+
     if (event.target.id === "order-form") {
       event.preventDefault();
       createOrderFromForm(event.target);
@@ -2362,6 +2671,89 @@
       event.preventDefault();
       updateServiceFromForm(event.target);
     }
+  }
+
+  function handleAuthSubmit(form) {
+    const fd = new FormData(form);
+    const role     = form.dataset.role;
+    const mode     = form.dataset.mode;
+    const phone    = String(fd.get("phone") || "").trim().replace(/\s/g, "");
+    const password = String(fd.get("password") || "").trim();
+    const name     = String(fd.get("name") || "").trim();
+    const outlet   = String(fd.get("outlet") || "").trim();
+
+    // Basic validation
+    if (!phone || !password) {
+      ui.authError = "Nomor dan kata sandi wajib diisi.";
+      render(); return;
+    }
+    if (!/^0[0-9]{8,12}$/.test(phone)) {
+      ui.authError = "Format nomor tidak valid. Contoh: 081234567890";
+      render(); return;
+    }
+    if (password.length < 6) {
+      ui.authError = "Kata sandi minimal 6 karakter.";
+      render(); return;
+    }
+
+    const accounts = loadAccounts();
+
+    if (mode === "register") {
+      if (!name) { ui.authError = "Nama lengkap wajib diisi."; render(); return; }
+      if (role === "owner" && !outlet) { ui.authError = "Nama outlet wajib diisi."; render(); return; }
+      // Check duplicate phone
+      if (accounts.find(a => a.role === role && normalizePhone(a.phone) === normalizePhone(phone))) {
+        ui.authError = "Nomor sudah terdaftar. Silakan masuk.";
+        render(); return;
+      }
+      // Create account
+      const newAcc = { id: createId("acc"), role, name, phone, password, outletName: outlet || "" };
+      // If client, create customer record
+      if (role === "client") {
+        const exists = data.customers.find(c => normalizePhone(c.phone) === normalizePhone(phone));
+        if (exists) {
+          newAcc.customerId = exists.id;
+        } else {
+          const cust = { id: createId("cus"), name, phone, address: "", points: 0 };
+          data.customers.push(cust);
+          saveState();
+          newAcc.customerId = cust.id;
+        }
+      } else {
+        // Update outlet name
+        data.outlet.name = outlet || data.outlet.name;
+        saveState();
+      }
+      accounts.push(newAcc);
+      saveAccounts(accounts);
+      enterApp(newAcc);
+
+    } else {
+      // Login
+      const acc = accounts.find(a => a.role === role && normalizePhone(a.phone) === normalizePhone(phone) && a.password === password);
+      if (!acc) {
+        ui.authError = "Nomor atau kata sandi salah.";
+        render(); return;
+      }
+      enterApp(acc);
+    }
+  }
+
+  function enterApp(account) {
+    ui.authError = "";
+    ui.launchStep = null;
+    ui.role = account.role;
+    if (account.role === "client") {
+      const custId = account.customerId || data.customers[0]?.id || "";
+      ui.selectedClientId = custId;
+      ui.clientTab = "home";
+      saveSession({ role: "client", customerId: custId, accountId: account.id });
+    } else {
+      ui.ownerTab = "dashboard";
+      saveSession({ role: "owner", accountId: account.id });
+    }
+    showToast(`Selamat datang, ${account.name || ""}!`);
+    render();
   }
 
   function handleInput(event) {

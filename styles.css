@@ -2588,3 +2588,494 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .c-ob__body { animation: none; }
 }
+
+/* =========================================================
+   OWNER ONBOARDING ILLUSTRATIONS
+   ========================================================= */
+.c-ob__illust--owner-1,
+.c-ob__illust--owner-2,
+.c-ob__illust--owner-3,
+.c-ob__illust--owner-4 {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 0 4px;
+}
+.c-ob__owner-art {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Mock dashboard */
+.c-ob__mock-dashboard {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.10);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.c-ob__mock-stat-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.c-ob__mock-stat {
+  background: var(--c-primary-soft);
+  border-radius: 10px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+.c-ob__mock-stat span:first-child {
+  font: 700 18px/1 Inter, sans-serif;
+  color: var(--c-primary);
+}
+.c-ob__mock-stat span:last-child {
+  font: 500 9px/1.2 Inter, sans-serif;
+  color: var(--c-muted);
+  text-align: center;
+}
+.c-ob__mock-order-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.c-ob__mock-order-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--c-bg-subtle, #f7fbfa);
+  border-radius: 8px;
+}
+.c-ob__mock-order-item span:first-child {
+  font: 600 11px/1 Inter, sans-serif;
+  color: var(--c-ink);
+  flex: 1;
+}
+.c-ob__mock-badge {
+  font: 600 9px/1 Inter, sans-serif;
+  padding: 3px 7px;
+  border-radius: 20px;
+}
+.c-ob__mock-badge--proses {
+  background: #fef9c3;
+  color: #854d0e;
+}
+.c-ob__mock-badge--selesai {
+  background: #dcfce7;
+  color: #15803d;
+}
+.c-ob__mock-badge--antar {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+/* Mock order list (slide 2) */
+.c-ob__mock-order-list {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.10);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Mock chart card (slide 3) */
+.c-ob__mock-chart-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.10);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.c-ob__mock-chart-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 64px;
+}
+.c-ob__mock-bar {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  background: var(--c-primary-soft);
+  min-height: 8px;
+}
+.c-ob__mock-bar--hi {
+  background: var(--c-primary);
+}
+.c-ob__mock-chart-stats {
+  display: flex;
+  gap: 12px;
+}
+.c-ob__mock-chart-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.c-ob__mock-chart-stat span:first-child {
+  font: 700 16px/1 Inter, sans-serif;
+  color: var(--c-primary);
+}
+.c-ob__mock-chart-stat span:last-child {
+  font: 500 9px/1.2 Inter, sans-serif;
+  color: var(--c-muted);
+}
+
+/* Mock WA card (slide 4) */
+.c-ob__mock-wa-card {
+  background: #e9f5e1;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.10);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.c-ob__mock-wa-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.c-ob__mock-wa-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #25d366;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+.c-ob__mock-wa-name {
+  font: 700 12px/1 Inter, sans-serif;
+  color: #111;
+}
+.c-ob__mock-wa-status {
+  font: 400 10px/1 Inter, sans-serif;
+  color: #25d366;
+}
+.c-ob__mock-wa-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.c-ob__mock-wa-bubble {
+  background: #fff;
+  border-radius: 0 10px 10px 10px;
+  padding: 8px 10px;
+  font: 400 11px/1.5 Inter, sans-serif;
+  color: #111;
+  max-width: 90%;
+  box-shadow: 0 1px 4px rgba(0,0,0,.10);
+}
+.c-ob__mock-wa-bubble--out {
+  background: #dcf8c6;
+  border-radius: 10px 0 10px 10px;
+  align-self: flex-end;
+}
+
+/* =========================================================
+   ROLE SELECT SCREEN
+   ========================================================= */
+.c-role-select {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: linear-gradient(160deg, #e0f7f4 0%, #fff 55%);
+  padding: 0;
+  overflow: hidden;
+}
+.c-role-select__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 56px 24px 28px;
+  gap: 10px;
+  text-align: center;
+}
+.c-role-select__logo-wrap {
+  width: 72px;
+  height: 72px;
+  background: var(--c-primary);
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 6px 24px rgba(15,118,110,.28);
+  margin-bottom: 4px;
+}
+.c-role-select__logo-wrap svg {
+  color: #fff;
+}
+.c-role-select__app {
+  font: 800 28px/1 Inter, sans-serif;
+  color: var(--c-ink);
+  letter-spacing: -.5px;
+}
+.c-role-select__title {
+  font: 600 16px/1.4 Inter, sans-serif;
+  color: var(--c-muted);
+  margin: 0;
+  max-width: 280px;
+}
+
+.c-role-select__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 20px;
+  flex: 1;
+}
+
+.c-role-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px 20px;
+  border-radius: 18px;
+  background: #fff;
+  border: 2px solid transparent;
+  box-shadow: 0 2px 16px rgba(0,0,0,.08);
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  -webkit-tap-highlight-color: transparent;
+  text-align: left;
+}
+.c-role-card:hover,
+.c-role-card:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,.12);
+}
+.c-role-card:active {
+  transform: scale(.98);
+}
+.c-role-card--owner {
+  border-color: var(--c-primary-soft-deep, #99d4ce);
+}
+.c-role-card--client {
+  border-color: #ffd6cc;
+}
+.c-role-card__icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 26px;
+}
+.c-role-card__icon--owner {
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+}
+.c-role-card__icon--client {
+  background: #fff0eb;
+  color: #e05a2b;
+}
+.c-role-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.c-role-card__body strong {
+  font: 700 17px/1.1 Inter, sans-serif;
+  color: var(--c-ink);
+  display: block;
+}
+.c-role-card__body span {
+  font: 400 13px/1.45 Inter, sans-serif;
+  color: var(--c-muted);
+  display: block;
+}
+.c-role-card__arrow {
+  flex-shrink: 0;
+  color: var(--c-muted);
+  opacity: .5;
+}
+
+.c-role-select__footer {
+  padding: 20px 24px 36px;
+  text-align: center;
+  font: 400 12px/1.5 Inter, sans-serif;
+  color: var(--c-muted);
+}
+
+/* =========================================================
+   AUTH SCREEN
+   ========================================================= */
+.c-auth {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  background: linear-gradient(160deg, #e0f7f4 0%, #fff 50%);
+}
+.c-auth__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 52px 20px 0;
+}
+.c-auth__back {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0,0,0,.06);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--c-ink);
+  flex-shrink: 0;
+  transition: background .12s;
+}
+.c-auth__back:hover { background: rgba(0,0,0,.1); }
+.c-auth__brand {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding-right: 36px;
+  font: 700 18px/1 Inter, sans-serif;
+  color: var(--c-ink);
+}
+.c-auth__brand img {
+  width: 22px;
+  height: 22px;
+}
+
+.c-auth__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 20px 36px;
+  gap: 20px;
+  overflow-y: auto;
+}
+.c-auth__role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font: 600 12px/1 Inter, sans-serif;
+  align-self: flex-start;
+}
+.c-auth__role-badge--owner {
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+}
+.c-auth__role-badge--client {
+  background: #fff0eb;
+  color: #e05a2b;
+}
+.c-auth__title {
+  font: 800 26px/1.2 Inter, sans-serif;
+  color: var(--c-ink);
+  margin: 0;
+}
+.c-auth__sub {
+  font: 400 14px/1.55 Inter, sans-serif;
+  color: var(--c-muted);
+  margin: -8px 0 0;
+}
+
+.c-auth__toggle {
+  display: flex;
+  background: #f1f5f4;
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+}
+.c-auth__toggle button {
+  flex: 1;
+  padding: 9px 0;
+  border: none;
+  background: transparent;
+  border-radius: 9px;
+  font: 600 14px/1 Inter, sans-serif;
+  color: var(--c-muted);
+  cursor: pointer;
+  transition: background .15s, color .15s, box-shadow .15s;
+}
+.c-auth__toggle button.is-active {
+  background: #fff;
+  color: var(--c-primary);
+  box-shadow: 0 1px 6px rgba(0,0,0,.10);
+}
+
+.c-auth__error {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font: 500 13px/1.4 Inter, sans-serif;
+}
+
+.c-auth__form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.c-auth__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.c-auth__field label {
+  font: 600 13px/1 Inter, sans-serif;
+  color: var(--c-ink);
+}
+.c-auth__field input {
+  padding: 13px 14px;
+  border: 1.5px solid #e2e8e7;
+  border-radius: 12px;
+  font: 400 15px/1 Inter, sans-serif;
+  color: var(--c-ink);
+  background: #fff;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  -webkit-appearance: none;
+}
+.c-auth__field input:focus {
+  border-color: var(--c-primary);
+  box-shadow: 0 0 0 3px rgba(15,118,110,.12);
+}
+.c-auth__field input::placeholder {
+  color: #b0bebb;
+}
+
+.c-auth__submit {
+  margin-top: 4px;
+}
+
+.c-auth__switch {
+  text-align: center;
+  font: 400 13px/1.5 Inter, sans-serif;
+  color: var(--c-muted);
+}
+.c-auth__switch button {
+  border: none;
+  background: none;
+  font: 600 13px/1.5 Inter, sans-serif;
+  color: var(--c-primary);
+  cursor: pointer;
+  padding: 0;
+}
+.c-auth__switch button:hover { text-decoration: underline; }
