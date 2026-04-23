@@ -3087,7 +3087,6 @@ img {
 /* Shell */
 .o-shell {
   min-height: 100vh;
-  padding: 0 0 calc(var(--bottom-nav) + 24px);
   background: var(--bg);
 }
 
@@ -3243,9 +3242,8 @@ img {
 }
 
 /* ── Page shell & heading ── */
-.o-shell > *:not(.o-topbar) {
-  padding-left: 16px;
-  padding-right: 16px;
+.o-content {
+  padding: 0 16px 110px;
 }
 .o-page-head {
   padding-top: 20px;

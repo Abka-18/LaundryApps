@@ -327,7 +327,9 @@
       app.innerHTML = `
         <main class="o-shell">
           ${renderTopbar()}
-          ${renderOwnerApp()}
+          <div class="o-content">
+            ${renderOwnerApp()}
+          </div>
         </main>
         ${renderBottomNav()}
         <button class="o-fab" type="button" data-action="open-order-form">
