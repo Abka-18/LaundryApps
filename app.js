@@ -18,11 +18,11 @@
   ];
 
   const ownerTabs = [
-    { id: "dashboard", label: "Home", short: "Hm" },
-    { id: "orders", label: "Order", short: "Or" },
-    { id: "customers", label: "Pelanggan", short: "Pg" },
-    { id: "reports", label: "Laporan", short: "Lp" },
-    { id: "settings", label: "Atur", short: "At" }
+    { id: "dashboard", label: "Home",      icon: "home"  },
+    { id: "orders",    label: "Order",     icon: "note"  },
+    { id: "customers", label: "Pelanggan", icon: "user"  },
+    { id: "reports",   label: "Laporan",   icon: "chart" },
+    { id: "settings",  label: "Atur",      icon: "cog"   }
   ];
 
   const clientTabs = [
@@ -76,7 +76,9 @@
     gift:    `<rect x="3" y="9" width="18" height="11" rx="1"/><path d="M3 13h18M12 9v11"/><path d="M8 9a3 3 0 0 1 4-4 3 3 0 0 1 4 4"/>`,
     logout:  `<path d="M9 4h9a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H9"/><path d="m13 12-8 0M8 8l-4 4 4 4"/>`,
     help:    `<circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 0 1 5 0c0 2-2.5 2.5-2.5 4"/><circle cx="12" cy="17" r=".8" fill="currentColor" stroke="none"/>`,
-    "star-solid": `<path d="m12 3 2.6 5.9 6.4.6-4.8 4.4 1.4 6.4L12 17.3 6.4 20.3l1.4-6.4L3 9.5l6.4-.6L12 3Z" fill="currentColor" stroke="none"/>`
+    "star-solid": `<path d="m12 3 2.6 5.9 6.4.6-4.8 4.4 1.4 6.4L12 17.3 6.4 20.3l1.4-6.4L3 9.5l6.4-.6L12 3Z" fill="currentColor" stroke="none"/>`,
+    cog:     `<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>`,
+    layers:  `<path d="m12 2 10 6.5-10 6.5L2 8.5 12 2Z"/><path d="m2 15.5 10 6.5 10-6.5"/><path d="m2 11.5 10 6.5 10-6.5"/>`
   };
 
   const ui = {
@@ -323,30 +325,46 @@
       `;
     } else {
       app.innerHTML = `
-        <main class="mobile-frame">
+        <main class="o-shell">
           ${renderTopbar()}
           ${renderOwnerApp()}
         </main>
         ${renderBottomNav()}
-        <button class="fab" type="button" data-action="open-order-form">+ Order</button>
+        <button class="o-fab" type="button" data-action="open-order-form">
+          ${icon("plus", "#fff")}<span>Order</span>
+        </button>
       `;
     }
     modalRoot.innerHTML = ui.modal ? renderModal(ui.modal) : "";
   }
 
   function renderTopbar() {
-    const roleLabel = ui.role === "owner" ? "Owner & Staff" : "Pelanggan";
+    const greet = greetingFor(new Date());
+    const metrics = getDashboardMetrics();
+    const urgentCount = metrics.unclaimed + (data.orders.filter(o => isLate(o)).length);
+    // Get account name from session
+    const session = loadSession();
+    const accounts = loadAccounts();
+    const account = session ? accounts.find(a => a.id === session.accountId) : null;
+    const ownerName = account ? firstName(account.name) : firstName(data.outlet.name);
     return `
-      <header class="topbar">
-        <div class="brand-row">
-          <img class="brand-mark" src="assets/laundry-basket.svg" alt="LaundAps" />
-          <div class="brand-copy">
-            <p class="eyebrow">${roleLabel}</p>
-            <h1>${escapeHtml(data.outlet.name)}</h1>
+      <header class="o-topbar">
+        <div class="o-topbar__row">
+          <div class="o-topbar__brand">
+            <div class="o-topbar__logo">
+              <img src="assets/laundry-basket.svg" alt="LaundAps" />
+            </div>
+            <div class="o-topbar__copy">
+              <p class="o-topbar__greet">${greet}, ${escapeHtml(ownerName)}!</p>
+              <h1 class="o-topbar__outlet">${escapeHtml(data.outlet.name)}</h1>
+            </div>
           </div>
-          <div class="role-switch" aria-label="Pilih mode aplikasi">
-            <button class="${ui.role === "owner" ? "active" : ""}" type="button" data-action="set-role" data-role="owner">Bisnis</button>
-            <button class="${ui.role === "client" ? "active" : ""}" type="button" data-action="set-role" data-role="client">Client</button>
+          <div class="o-topbar__actions">
+            ${urgentCount ? `<span class="o-topbar__alert">${urgentCount}</span>` : ""}
+            <div class="o-topbar__role-pill">
+              <button class="${ui.role === "owner" ? "is-on" : ""}" type="button" data-action="set-role" data-role="owner">Bisnis</button>
+              <button class="${ui.role === "client" ? "is-on" : ""}" type="button" data-action="set-role" data-role="client">Client</button>
+            </div>
           </div>
         </div>
       </header>
@@ -372,20 +390,28 @@
   }
 
   function renderBottomNav() {
-    const tabs = ui.role === "owner" ? ownerTabs : clientTabs;
-    const activeTab = ui.role === "owner" ? ui.ownerTab : ui.clientTab;
+    if (ui.role === "owner") {
+      return `
+        <nav class="o-bottom-nav" aria-label="Navigasi utama">
+          ${ownerTabs.map(tab => `
+            <button class="o-nav-item ${ui.ownerTab === tab.id ? "is-active" : ""}"
+              type="button" data-action="set-tab" data-tab="${tab.id}">
+              <span class="o-nav-item__icon">${icon(tab.icon, ui.ownerTab === tab.id ? "var(--primary)" : "var(--muted)")}</span>
+              <span class="o-nav-item__label">${tab.label}</span>
+            </button>
+          `).join("")}
+        </nav>
+      `;
+    }
+    const activeTab = ui.clientTab;
     return `
       <nav class="bottom-nav" aria-label="Navigasi utama">
         <div class="bottom-nav-inner">
-          ${tabs
-            .map(
-              (tab) => `
-                <button class="nav-item ${activeTab === tab.id ? "active" : ""}" type="button" data-action="set-tab" data-tab="${tab.id}">
-                  <span>${tab.short}</span>${tab.label}
-                </button>
-              `
-            )
-            .join("")}
+          ${clientTabs.map(tab => `
+            <button class="nav-item ${activeTab === tab.id ? "active" : ""}" type="button" data-action="set-tab" data-tab="${tab.id}">
+              <span>${icon(tab.icon, activeTab === tab.id ? "var(--primary-dark)" : "var(--muted)")}</span>${tab.label}
+            </button>
+          `).join("")}
         </div>
       </nav>
     `;
@@ -397,62 +423,106 @@
       .filter((order) => order.status !== "completed")
       .sort((a, b) => new Date(a.dueAt) - new Date(b.dueAt))
       .slice(0, 4);
+    const lateCount = data.orders.filter(o => isLate(o)).length;
 
     return `
-      <section class="page-title">
-        <div>
-          <h2>Operasional hari ini</h2>
-          <p>${formatDate(new Date())} - pantau order, omzet, dan cucian siap ambil.</p>
+      <!-- Hero -->
+      <div class="o-dash-hero">
+        <div class="o-dash-hero__left">
+          <p class="o-dash-hero__date">${formatDate(new Date())}</p>
+          <p class="o-dash-hero__label">Omzet hari ini</p>
+          <h2 class="o-dash-hero__value">${formatCurrency(metrics.todayRevenue)}</h2>
         </div>
-      </section>
-
-      <section class="dashboard-grid" aria-label="Ringkasan bisnis">
-        ${statCard("Order hari ini", metrics.todayOrders, "Masuk sejak buka toko", "primary")}
-        ${statCard("Omzet hari ini", formatCurrency(metrics.todayRevenue), "Transaksi sudah lunas")}
-        ${statCard("Diproses", metrics.inProcess, "Cuci, kering, setrika")}
-        ${statCard("Belum diambil", metrics.unclaimed, "Perlu reminder", metrics.unclaimed ? "warning" : "")}
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>Aksi cepat</h3>
-            <p>Dirancang untuk kasir saat outlet ramai.</p>
-          </div>
+        <div class="o-dash-hero__right">
+          ${lateCount ? `<span class="o-dash-hero__warn">${icon("clock","#fff")} ${lateCount} telat</span>` : ""}
+          <span class="o-dash-hero__sub">${metrics.todayOrders} order masuk</span>
         </div>
-        <div class="quick-actions">
-          <button class="quick-action" type="button" data-action="open-order-form">Order Baru<span>Input cepat</span></button>
-          <button class="quick-action" type="button" data-action="set-tab" data-tab="orders">Update Status<span>Satu tap</span></button>
-          <button class="quick-action" type="button" data-action="copy-daily-summary">Kirim Rekap<span>Owner</span></button>
+      </div>
+
+      <!-- Stats strip -->
+      <div class="o-stats-strip">
+        <div class="o-stat-chip o-stat-chip--teal">
+          <span class="o-stat-chip__icon">${icon("note","var(--primary)")}</span>
+          <strong>${metrics.inProcess}</strong>
+          <span>Diproses</span>
         </div>
-      </section>
+        <div class="o-stat-chip o-stat-chip--coral">
+          <span class="o-stat-chip__icon">${icon("clock","var(--accent)")}</span>
+          <strong>${metrics.unclaimed}</strong>
+          <span>Siap ambil</span>
+        </div>
+        <div class="o-stat-chip o-stat-chip--sky">
+          <span class="o-stat-chip__icon">${icon("truck","var(--info)")}</span>
+          <strong>${metrics.deliveryActive}</strong>
+          <span>Pickup/Delivery</span>
+        </div>
+        <div class="o-stat-chip o-stat-chip--leaf">
+          <span class="o-stat-chip__icon">${icon("user","var(--success)")}</span>
+          <strong>${metrics.activeCustomers}</strong>
+          <span>Pelanggan aktif</span>
+        </div>
+      </div>
 
-      <div class="content-layout">
-        <section class="panel">
-          <div class="panel-header">
-            <div>
-              <h3>Prioritas sekarang</h3>
-              <p>Urut dari deadline paling dekat.</p>
-            </div>
-            <button class="ghost-button" type="button" data-action="set-tab" data-tab="orders">Lihat semua</button>
-          </div>
-          ${focusOrders.length ? `<div class="order-list">${focusOrders.map(renderOrderCard).join("")}</div>` : renderEmpty("Tidak ada order aktif.")}
-        </section>
+      <!-- Quick actions -->
+      <div class="o-quick-grid">
+        <button class="o-quick-card o-quick-card--primary" type="button" data-action="open-order-form">
+          <span class="o-quick-card__icon">${icon("plus","#fff")}</span>
+          <span class="o-quick-card__label">Order Baru</span>
+          <span class="o-quick-card__sub">Input cepat</span>
+        </button>
+        <button class="o-quick-card o-quick-card--sky" type="button" data-action="set-tab" data-tab="orders">
+          <span class="o-quick-card__icon">${icon("check","var(--info)")}</span>
+          <span class="o-quick-card__label">Update Status</span>
+          <span class="o-quick-card__sub">Satu tap</span>
+        </button>
+        <button class="o-quick-card o-quick-card--coral" type="button" data-action="copy-daily-summary">
+          <span class="o-quick-card__icon">${icon("phone","var(--accent)")}</span>
+          <span class="o-quick-card__label">Rekap Harian</span>
+          <span class="o-quick-card__sub">Salin ke WA</span>
+        </button>
+      </div>
 
-        <section class="panel">
-          <div class="panel-header">
-            <div>
-              <h3>Insight cepat</h3>
-              <p>Data yang membantu keputusan harian.</p>
-            </div>
-          </div>
-          <div class="insight-list">
-            ${renderInsight("Pickup & delivery", `${metrics.deliveryActive} aktif`, "Jadwal jemput dan antar hari ini")}
-            ${renderInsight("Pelanggan aktif", metrics.activeCustomers, "Pelanggan dengan order 30 hari terakhir")}
-            ${renderInsight("Layanan terlaris", metrics.topService || "-", "Berdasarkan order bulan ini")}
-            ${renderInsight("Omzet bulan ini", formatCurrency(metrics.monthRevenue), "Transaksi lunas bulan berjalan")}
-          </div>
-        </section>
+      <!-- Priority orders -->
+      <div class="o-section">
+        <div class="o-section__head">
+          <h3 class="o-section__title">Prioritas sekarang</h3>
+          <button class="o-link" type="button" data-action="set-tab" data-tab="orders">Lihat semua</button>
+        </div>
+        ${focusOrders.length
+          ? focusOrders.map(renderOrderCard).join("")
+          : renderOwnerEmpty("Tidak ada order aktif saat ini.")}
+      </div>
+
+      <!-- Insight strip -->
+      <div class="o-section">
+        <div class="o-section__head">
+          <h3 class="o-section__title">Insight bisnis</h3>
+        </div>
+        <div class="o-insight-grid">
+          ${ownerInsightChip(icon("layers","var(--primary)"), metrics.topService || "-", "Layanan terlaris")}
+          ${ownerInsightChip(icon("chart","var(--success)"), formatCurrency(metrics.monthRevenue), "Omzet bulan ini")}
+          ${ownerInsightChip(icon("truck","var(--info)"), `${metrics.deliveryActive} aktif`, "Pickup & delivery")}
+          ${ownerInsightChip(icon("user","var(--warning)"), metrics.activeCustomers, "Pelanggan aktif (30hr)")}
+        </div>
+      </div>
+    `;
+  }
+
+  function ownerInsightChip(iconHtml, value, label) {
+    return `
+      <div class="o-insight-chip">
+        <span class="o-insight-chip__icon">${iconHtml}</span>
+        <strong class="o-insight-chip__value">${escapeHtml(String(value))}</strong>
+        <span class="o-insight-chip__label">${escapeHtml(label)}</span>
+      </div>
+    `;
+  }
+
+  function renderOwnerEmpty(message) {
+    return `
+      <div class="o-empty">
+        <div class="o-empty__icon">${icon("sparkle","var(--primary)")}</div>
+        <strong>${escapeHtml(message)}</strong>
       </div>
     `;
   }
@@ -460,20 +530,20 @@
   function renderOrdersPage() {
     const filtered = getFilteredOrders();
     return `
-      <section class="page-title">
-        <div>
-          <h2>Order laundry</h2>
-          <p>Cari, filter, update status, dan kirim info ke pelanggan.</p>
+      <div class="o-page-head">
+        <h2 class="o-page-head__title">Order Laundry</h2>
+        <p class="o-page-head__sub">${filtered.length} order ditampilkan</p>
+      </div>
+      <div class="o-search-row">
+        <div class="o-search-row__input-wrap">
+          <span class="o-search-row__icon">${icon("search","var(--muted)")}</span>
+          <input class="o-search-input" type="search" placeholder="Cari nama, invoice, nomor HP…" value="${escapeAttr(ui.search)}" data-input="search-orders" />
         </div>
-      </section>
-      <div class="search-row">
-        <input class="input" type="search" placeholder="Cari nama, invoice, nomor HP" value="${escapeAttr(ui.search)}" data-input="search-orders" />
-        <button class="button" type="button" data-action="open-order-form">+ Order</button>
       </div>
       ${renderOrderFilters()}
-      <section class="order-list">
-        ${filtered.length ? filtered.map(renderOrderCard).join("") : renderEmpty("Order tidak ditemukan.")}
-      </section>
+      <div class="o-order-list" id="owner-order-list">
+        ${filtered.length ? filtered.map(renderOrderCard).join("") : renderOwnerEmpty("Order tidak ditemukan.")}
+      </div>
     `;
   }
 
@@ -482,33 +552,41 @@
       .map((customer) => {
         const orders = data.orders.filter((order) => order.customerId === customer.id);
         const spent = orders.filter((order) => order.paymentStatus === "paid").reduce((sum, order) => sum + order.total, 0);
-        return { ...customer, orders: orders.length, spent };
+        const hasActive = orders.some(o => o.status !== "completed");
+        return { ...customer, orderCount: orders.length, spent, hasActive };
       })
-      .sort((a, b) => b.orders - a.orders);
+      .sort((a, b) => b.orderCount - a.orderCount);
+
+    const avatarColors = ["#0f766e","#0284c7","#7c3aed","#c2410c","#15803d","#b45309"];
 
     return `
-      <section class="page-title">
-        <div>
-          <h2>Pelanggan</h2>
-          <p>Riwayat pelanggan untuk repeat order, promo, dan reminder.</p>
-        </div>
-      </section>
-      <section class="customer-list">
-        ${customers
-          .map(
-            (customer) => `
-              <article class="customer-row">
-                <div class="avatar">${initials(customer.name)}</div>
-                <div class="row-copy">
-                  <strong>${escapeHtml(customer.name)}</strong>
-                  <span>${escapeHtml(customer.phone)} - ${customer.orders} order - ${formatCurrency(customer.spent)}</span>
+      <div class="o-page-head">
+        <h2 class="o-page-head__title">Pelanggan</h2>
+        <p class="o-page-head__sub">${customers.length} terdaftar</p>
+      </div>
+      <div class="o-cust-list">
+        ${customers.map((c, i) => {
+          const color = avatarColors[i % avatarColors.length];
+          return `
+            <article class="o-cust-card">
+              <div class="o-cust-card__ava" style="background:${color}">
+                ${escapeHtml(initials(c.name))}
+                ${c.hasActive ? '<span class="o-cust-card__dot"></span>' : ""}
+              </div>
+              <div class="o-cust-card__info">
+                <strong class="o-cust-card__name">${escapeHtml(c.name)}</strong>
+                <span class="o-cust-card__phone">${escapeHtml(c.phone)}</span>
+                <div class="o-cust-card__badges">
+                  <span class="o-badge o-badge--info">${c.orderCount} order</span>
+                  <span class="o-badge o-badge--ghost">${formatCurrency(c.spent)}</span>
+                  ${c.points ? `<span class="o-badge o-badge--gold">★ ${c.points} poin</span>` : ""}
                 </div>
-                <button class="ghost-button" type="button" data-action="open-customer" data-id="${customer.id}">Detail</button>
-              </article>
-            `
-          )
-          .join("")}
-      </section>
+              </div>
+              <button class="o-btn o-btn--ghost o-btn--sm" type="button" data-action="open-customer" data-id="${c.id}">Detail</button>
+            </article>
+          `;
+        }).join("")}
+      </div>
     `;
   }
 
@@ -516,115 +594,149 @@
     const report = getReport(ui.reportRange);
     const maxService = Math.max(1, ...report.services.map((item) => item.total));
     return `
-      <section class="page-title">
-        <div>
-          <h2>Laporan</h2>
-          <p>Ringkas dulu, detail bisa dikembangkan setelah validasi outlet.</p>
-        </div>
-      </section>
-      <div class="segmented" role="tablist" aria-label="Rentang laporan">
-        ${["today", "week", "month"]
-          .map(
-            (range) => `
-              <button class="${ui.reportRange === range ? "active" : ""}" type="button" data-action="set-report-range" data-range="${range}">
-                ${rangeLabel(range)}
-              </button>
-            `
-          )
-          .join("")}
+      <div class="o-page-head">
+        <h2 class="o-page-head__title">Laporan</h2>
+        <p class="o-page-head__sub">Ringkasan performa outlet</p>
       </div>
-      <section class="dashboard-grid">
-        ${statCard("Omzet", formatCurrency(report.revenue), "Transaksi lunas", "primary")}
-        ${statCard("Order", report.orders, "Total order dibuat")}
-        ${statCard("Belum lunas", formatCurrency(report.unpaid), "Perlu ditagih")}
-        ${statCard("Rata-rata", formatCurrency(report.average), "Nilai per order")}
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>Layanan terlaris</h3>
-            <p>Bantu atur promo dan kapasitas produksi.</p>
-          </div>
+
+      <!-- Range selector -->
+      <div class="o-range-tabs" role="tablist">
+        ${["today","week","month"].map(r => `
+          <button class="o-range-tab ${ui.reportRange === r ? "is-active" : ""}"
+            type="button" data-action="set-report-range" data-range="${r}">${rangeLabel(r)}</button>
+        `).join("")}
+      </div>
+
+      <!-- Hero revenue card -->
+      <div class="o-report-hero">
+        <p class="o-report-hero__label">Total Omzet</p>
+        <h2 class="o-report-hero__value">${formatCurrency(report.revenue)}</h2>
+        <p class="o-report-hero__sub">${rangeLabel(ui.reportRange)} · ${report.orders} order</p>
+      </div>
+
+      <!-- Stats grid -->
+      <div class="o-report-grid">
+        <div class="o-report-stat">
+          <span class="o-report-stat__icon">${icon("note","var(--primary)")}</span>
+          <strong>${report.orders}</strong>
+          <span>Total Order</span>
         </div>
-        <div class="report-bars">
-          ${report.services
-            .map(
-              (item) => `
-                <div class="bar-row">
-                  <div class="bar-label"><strong>${escapeHtml(item.name)}</strong><span>${item.count} order</span></div>
-                  <div class="bar-track"><div class="bar-fill" style="width: ${Math.max(8, (item.total / maxService) * 100)}%"></div></div>
+        <div class="o-report-stat">
+          <span class="o-report-stat__icon">${icon("credit","var(--danger)")}</span>
+          <strong>${formatCurrency(report.unpaid)}</strong>
+          <span>Belum Lunas</span>
+        </div>
+        <div class="o-report-stat">
+          <span class="o-report-stat__icon">${icon("chart","var(--success)")}</span>
+          <strong>${formatCurrency(report.average)}</strong>
+          <span>Rata-rata Order</span>
+        </div>
+      </div>
+
+      <!-- Bar chart -->
+      <div class="o-section">
+        <div class="o-section__head">
+          <h3 class="o-section__title">Layanan terlaris</h3>
+        </div>
+        <div class="o-bar-chart">
+          ${report.services.map((item, i) => {
+            const pct = Math.max(6, Math.round((item.total / maxService) * 100));
+            const colors = ["var(--primary)","var(--info)","var(--success)","var(--warning)","var(--accent)"];
+            const color = colors[i % colors.length];
+            return `
+              <div class="o-bar-row">
+                <div class="o-bar-row__meta">
+                  <strong>${escapeHtml(item.name)}</strong>
+                  <span>${item.count} order · ${formatCurrency(item.total)}</span>
                 </div>
-              `
-            )
-            .join("")}
+                <div class="o-bar-row__track">
+                  <div class="o-bar-row__fill" style="width:${pct}%; background:${color}"></div>
+                  <span class="o-bar-row__pct">${pct}%</span>
+                </div>
+              </div>
+            `;
+          }).join("")}
         </div>
-      </section>
+      </div>
     `;
   }
 
   function renderSettingsPage() {
+    const session = loadSession();
+    const accounts = loadAccounts();
+    const account = session ? accounts.find(a => a.id === session.accountId) : null;
     return `
-      <section class="page-title">
-        <div>
-          <h2>Pengaturan bisnis</h2>
-          <p>Harga layanan, outlet, notifikasi, dan reset demo.</p>
+      <!-- Profile card -->
+      <div class="o-profile-card">
+        <div class="o-profile-card__ava">
+          ${escapeHtml(initials(account?.name || data.outlet.name))}
         </div>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>Outlet</h3>
-            <p>${escapeHtml(data.outlet.address)}, ${escapeHtml(data.outlet.city)}</p>
-          </div>
+        <div class="o-profile-card__info">
+          <strong>${escapeHtml(account?.name || "Owner")}</strong>
+          <span>${escapeHtml(data.outlet.name)}</span>
+          <span class="o-badge o-badge--teal">Owner &amp; Staff</span>
         </div>
-        <div class="insight-list">
-          ${renderInsight("Nomor WhatsApp", data.outlet.phone, "Dipakai untuk notifikasi pelanggan")}
-          ${renderInsight("Mode app", "PWA mobile-first", "Bisa diinstall dari browser smartphone")}
+      </div>
+
+      <!-- Outlet info -->
+      <div class="o-section">
+        <div class="o-section__head">
+          <h3 class="o-section__title">Outlet</h3>
         </div>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>Layanan & harga</h3>
-            <p>Harga awal untuk validasi laundry kecil-menengah.</p>
-          </div>
+        <div class="o-settings-list">
+          ${settingsItem(icon("pin","var(--muted)"), "Alamat", `${data.outlet.address}, ${data.outlet.city}`)}
+          ${settingsItem(icon("phone","var(--muted)"), "WhatsApp", data.outlet.phone)}
+          ${settingsItem(icon("sparkle","var(--muted)"), "Mode App", "PWA · Bisa diinstall di HP")}
         </div>
-        <div class="service-list">
-          ${data.services
-            .map(
-              (service) => `
-                <article class="service-row">
-                  <div>
-                    <strong>${escapeHtml(service.name)}</strong>
-                    <span>${formatCurrency(service.price)} / ${service.unit} - estimasi ${service.etaHours} jam</span>
-                  </div>
-                  <button class="ghost-button" type="button" data-action="edit-service" data-id="${service.id}">Edit</button>
-                </article>
-              `
-            )
-            .join("")}
+      </div>
+
+      <!-- Layanan & harga -->
+      <div class="o-section">
+        <div class="o-section__head">
+          <h3 class="o-section__title">Layanan &amp; Harga</h3>
         </div>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>Data demo</h3>
-            <p>Gunakan saat ingin mengulang skenario dari awal.</p>
-          </div>
+        <div class="o-service-list">
+          ${data.services.map(s => `
+            <div class="o-service-row">
+              <div class="o-service-row__icon">${icon(serviceIconMap[s.id] || "bag","var(--primary)")}</div>
+              <div class="o-service-row__info">
+                <strong>${escapeHtml(s.name)}</strong>
+                <span>${formatCurrency(s.price)} / ${s.unit} · ${s.etaHours} jam</span>
+              </div>
+              <button class="o-btn o-btn--ghost o-btn--sm" type="button" data-action="edit-service" data-id="${s.id}">Edit</button>
+            </div>
+          `).join("")}
         </div>
-        <button class="danger-button" type="button" data-action="reset-demo">Reset data demo</button>
-      </section>
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h3>Akun</h3>
-            <p>Keluar dari sesi ini.</p>
-          </div>
+      </div>
+
+      <!-- Danger zone -->
+      <div class="o-section">
+        <div class="o-section__head">
+          <h3 class="o-section__title">Data &amp; Akun</h3>
         </div>
-        <button class="c-logout" type="button" data-action="owner-logout">
-          ${icon("logout")} Keluar dari akun
-        </button>
-      </section>
+        <div class="o-settings-list">
+          <button class="o-settings-danger" type="button" data-action="reset-demo">
+            <span>${icon("close","var(--danger)")}</span>
+            <span>Reset data demo</span>
+          </button>
+          <button class="o-settings-logout" type="button" data-action="owner-logout">
+            <span>${icon("logout","var(--muted)")}</span>
+            <span>Keluar dari akun</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  function settingsItem(iconHtml, label, value) {
+    return `
+      <div class="o-settings-item">
+        <span class="o-settings-item__icon">${iconHtml}</span>
+        <div class="o-settings-item__body">
+          <span class="o-settings-item__label">${escapeHtml(label)}</span>
+          <strong class="o-settings-item__value">${escapeHtml(String(value))}</strong>
+        </div>
+      </div>
     `;
   }
 
@@ -1056,26 +1168,33 @@
     const customer = getCustomer(order.customerId);
     const status = getStatus(order.status);
     const next = getNextStatus(order.status);
+    const percent = Math.max(6, Math.round((statusIndex(order.status) / (statusFlow.length - 1)) * 100));
+    const late = isLate(order);
+    const name = customer?.name || order.customerName;
     return `
-      <article class="order-card">
-        <div class="order-main">
-          <div class="order-title">
-            <strong>${escapeHtml(order.number)} - ${escapeHtml(customer?.name || order.customerName)}</strong>
-            <span class="muted">${escapeHtml(order.serviceName)} - ${formatQty(order)} - due ${relativeDue(order.dueAt)}</span>
+      <article class="o-order-card">
+        <div class="o-order-card__top">
+          <div class="o-order-card__ava">${escapeHtml(initials(name))}</div>
+          <div class="o-order-card__info">
+            <span class="o-order-card__num">${escapeHtml(order.number)}</span>
+            <strong class="o-order-card__name">${escapeHtml(name)}</strong>
+            <span class="o-order-card__svc">${escapeHtml(order.serviceName)} · ${formatQty(order)}</span>
           </div>
-          <span class="status-chip ${status.tone}">${status.label}</span>
+          <span class="o-badge o-badge--${status.tone}">${status.label}</span>
         </div>
-        <div class="order-meta">
-          <span class="small-chip">${formatCurrency(order.total)}</span>
-          <span class="small-chip">${paymentLabel(order.paymentStatus)}</span>
-          <span class="small-chip">${fulfillmentLabel(order.fulfillment)}</span>
-          ${isLate(order) ? '<span class="status-chip danger">Telat</span>' : ""}
+        <div class="o-order-card__bar">
+          <div class="o-order-card__bar-fill" style="width:${percent}%"></div>
         </div>
-        ${renderProgress(order)}
-        <div class="order-actions">
-          <button class="ghost-button" type="button" data-action="open-order" data-id="${order.id}">Detail</button>
-          <button class="button secondary" type="button" data-action="send-whatsapp" data-id="${order.id}">Kirim WA</button>
-          <button class="button" type="button" data-action="next-status" data-id="${order.id}" ${!next ? "disabled" : ""}>${next ? `Ke ${next.label}` : "Selesai"}</button>
+        <div class="o-order-card__chips">
+          <span class="o-chip">${formatCurrency(order.total)}</span>
+          <span class="o-chip o-chip--${order.paymentStatus === "paid" ? "green" : "red"}">${paymentLabel(order.paymentStatus)}</span>
+          <span class="o-chip">${fulfillmentLabel(order.fulfillment)}</span>
+          ${late ? '<span class="o-chip o-chip--red">⚠ Telat</span>' : `<span class="o-chip o-chip--muted">Due ${relativeDue(order.dueAt)}</span>`}
+        </div>
+        <div class="o-order-card__actions">
+          <button class="o-btn o-btn--ghost" type="button" data-action="open-order" data-id="${order.id}">Detail</button>
+          <button class="o-btn o-btn--wa" type="button" data-action="send-whatsapp" data-id="${order.id}">${icon("phone","#25d366")} WA</button>
+          <button class="o-btn o-btn--primary" type="button" data-action="next-status" data-id="${order.id}" ${!next ? "disabled" : ""}>${next ? `→ ${next.label}` : "✓ Selesai"}</button>
         </div>
       </article>
     `;
@@ -2760,10 +2879,10 @@
     const input = event.target;
     if (input.dataset.input === "search-orders") {
       ui.search = input.value;
-      const orderList = document.querySelector(".order-list");
+      const orderList = document.querySelector("#owner-order-list") || document.querySelector(".order-list");
       if (orderList) {
         const filtered = getFilteredOrders();
-        orderList.innerHTML = filtered.length ? filtered.map(renderOrderCard).join("") : renderEmpty("Order tidak ditemukan.");
+        orderList.innerHTML = filtered.length ? filtered.map(renderOrderCard).join("") : renderOwnerEmpty("Order tidak ditemukan.");
       }
     }
 
